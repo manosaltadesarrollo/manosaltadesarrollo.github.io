@@ -1,0 +1,121 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (min-width: 320px) and (max-width: 768px) {
+    footer {
+        @apply w-full;
+        @apply p-5;
+        @apply flex-col;
+        @apply justify-center;
+        @apply gap-y-8;
+    }
+
+    footer #footer-images {
+        @apply w-[80%];
+        @apply justify-center;
+        @apply items-center;
+        @apply gap-y-6;
+    }
+
+    footer #footer-images #mano-logo {
+        @apply mx-auto;
+        @apply w-full;
+        @apply max-w-[311px];
+        @apply h-16;
+    }
+
+    footer #footer-images span {
+        @apply w-full;
+        @apply max-w-[380px];
+        @apply flex;
+        @apply flex-wrap;
+        @apply gap-2;
+        @apply justify-center;
+    }
+
+    footer #footer-images span #aacm-logo {
+        @apply w-full;
+        @apply max-w-[230px];
+        @apply h-[28vw];
+        @apply max-h-[100px];
+    }
+
+    footer #footer-images span #asot-logo {
+        @apply min-w-24;
+        @apply w-[14vw];
+        @apply min-h-24;
+        @apply h-[14vw];
+        @apply self-center;
+    }
+
+    footer #footer-socials ul li{
+        @apply mb-5;
+        @apply flex;
+        @apply items-center;
+        @apply gap-x-3;
+    }
+
+    footer #footer-socials ul li svg {
+        @apply text-2xl;
+    }
+
+    footer #footer-socials ul li p {
+        @apply text-base;
+        @apply font-light;
+    }
+}
+
+@media (min-width: 769px) {
+    footer {
+        @apply p-5;
+        @apply justify-between;
+    }
+
+    footer #footer-images {
+        @apply max-w-[400px];
+        @apply flex-col;
+        @apply items-start;
+        @apply gap-y-3;
+    }
+
+    footer #footer-images span {
+        @apply flex;
+        @apply gap-x-4;
+    }
+
+        footer #footer-images #mano-logo {
+        @apply w-full;
+        @apply max-w-[311px];
+        @apply h-16;
+    }
+
+    footer #footer-images span #aacm-logo {
+        @apply w-full;
+        @apply max-w-[400px];
+        @apply h-32;
+    }
+
+    footer #footer-images span #asot-logo {
+        @apply min-w-24;
+        @apply w-full;
+        @apply h-24;
+        @apply self-center
+    }
+
+    footer #footer-socials ul li{
+        @apply mb-5;
+        @apply flex;
+        @apply items-center;
+        @apply gap-x-3;
+    }
+
+    footer #footer-socials ul li svg {
+        @apply text-2xl;
+    }
+
+    footer #footer-socials ul li p {
+        @apply text-base;
+        @apply font-light;
+    }
+}
