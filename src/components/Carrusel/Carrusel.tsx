@@ -24,7 +24,7 @@ const Carrusel = () => {
         <img
           key={index}
           src={img.src}
-          className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${img.className} ${
+          className={`absolute inset-0 w-full h-full transition-all duration-1000 ease-in-out ${img.className} ${
             index === currentIndex ? "opacity-100 z-10" : "opacity-0 z-0"
           }`}
           alt={`IMG ${index + 1}`}
