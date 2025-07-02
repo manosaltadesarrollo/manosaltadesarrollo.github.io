@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (min-width: 1024px) {
+    #contact-section #contact-details #contact-info {
+        @apply flex flex-col items-start gap-y-4;
+    }
+
+    #contact-section #contact-details #contact-info svg {
+        @apply text-lg mr-3 text-terracotta;
+    }
+}

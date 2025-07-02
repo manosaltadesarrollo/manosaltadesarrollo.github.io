@@ -9,7 +9,7 @@ type CardParams = {
 
 const Card = ({title, text, buttonText, link} : CardParams) => {
   return (
-    <div className='relative bg-lightLilac top-16 p-3 w-[30vw] max-w-[300px] rounded-md shadow-[6px_6px_10px_0px_rgba(0,0,0,0.5)]'>
+    <div className='relative bg-lightLilac top-[72px] p-3 w-[30vw] max-w-[300px] rounded-md shadow-[6px_6px_10px_0px_rgba(0,0,0,0.5)]'>
         <h4 className='font-semibold text-base mb-1'>{title}</h4>
         <p className='font-light text-base mb-4'>{text}</p>
         <span className='flex items-center justify-between'>
