@@ -144,8 +144,21 @@
         @apply text-xl;
     }
 
+    header #header-nav h2:hover {
+        @apply hover:text-tangerine;
+        @apply transition-all;
+        @apply duration-200;
+    }
+
     header #header-nav ul {
         @apply text-sm;
         @apply gap-x-9;
+    }
+
+    header #header-nav ul li a {
+        @apply hover:text-tangerine;
+        @apply hover:underline;
+        @apply transition-all;
+        @apply duration-200;
     }
 }
