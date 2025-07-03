@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import images from "../../constants/images";
+import {homeImages} from "../../constants/images";
 import "./carrusel.css";
 const Carrusel = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -7,7 +7,7 @@ const Carrusel = () => {
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentIndex((prevIndex) =>
-        prevIndex === images.length - 1 ? 0 : prevIndex + 1
+        prevIndex === homeImages.length - 1 ? 0 : prevIndex + 1
       );
     }, 7000);
 
@@ -16,7 +16,7 @@ const Carrusel = () => {
 
   return (
     <div id="carousel-container" className="relative z-0 left-0 w-full">
-      {images.map((img, index) => (
+      {homeImages.map((img, index) => (
         <img
           key={index}
           src={img.src}
