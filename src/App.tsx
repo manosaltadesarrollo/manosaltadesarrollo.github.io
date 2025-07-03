@@ -1,17 +1,12 @@
-import Footer from './components/Footer/Footer'
-import Header from './components/Header/Header'
-import Home from './components/Home/Home'
+import { BrowserRouter } from 'react-router-dom'
 import './App.css'
+import AppRoutes from './routes/Routes'
 
-function App() {
-  return (
-    <>
-      <Header />
-      <main className='min-h-screen'>
-        <Home />
-      </main>
-      <Footer />
-    </>
+function App ()  {
+  return(
+    <BrowserRouter>
+      <AppRoutes />
+    </BrowserRouter>
   )
 }
 

@@ -1,8 +1,12 @@
 import { Config } from "tailwindcss";
 
-const config : Config= {
-  content: ["./index.html", "./src/**/*.{js,ts,jsx,tsx}", "./src/components/**/*.{js,ts,jsx,tsx}"],
-  safelist: ['bg-tangerine'],
+const config: Config = {
+  content: [
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+    "./src/components/**/*.{js,ts,jsx,tsx}",
+  ],
+  safelist: ["opacity-0", "opacity-100", "z-0", "z-10", "pointer-events-none"],
   theme: {
     extend: {
       fontFamily: {
@@ -10,13 +14,13 @@ const config : Config= {
         impact: ["Impact", "sans-serif"],
       },
       colors: {
-        "terracotta": "#8D2D17",
-        "darkCoral": "#DA5D31",
-        "tangerine": "#ED7916",
-        "lilac": "#694896",
-        "lightLilac": "#CEBFDE",
-        "greyPearl": "#EEEDEF",
-        "softWhite": "#F0F0F0"
+        terracotta: "#8D2D17",
+        darkCoral: "#DA5D31",
+        tangerine: "#ED7916",
+        lilac: "#694896",
+        lightLilac: "#CEBFDE",
+        greyPearl: "#EEEDEF",
+        softWhite: "#F0F0F0",
       },
       fontSize: {
         base: "18px",
@@ -31,7 +35,7 @@ const config : Config= {
         sm: "4px",
         md: "6px",
         lg: "8px",
-      }
+      },
     },
   },
   plugins: [],

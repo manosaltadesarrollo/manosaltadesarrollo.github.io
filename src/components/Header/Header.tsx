@@ -5,6 +5,7 @@ import { HiMiniBars3 } from 'react-icons/hi2'
 import { useState } from 'react'
 import Menu from '../Menu/Menu'
 import { FaXmark } from 'react-icons/fa6'
+import { Link } from 'react-router-dom'
 const Header = () => {
 
   const [visible, setVisible] = useState<boolean>(false)
@@ -30,9 +31,9 @@ const Header = () => {
             <a href='/'><h2 className='font-impact'>Dr. Fernando Juarez Cesca</h2></a>
             <p className='hidden'></p>
             <ul className='flex justify-between items-center'>
-            <li><a href="/sobre-mi">Sobre Mi</a></li>
-            <li><a href="/diagnostico">Diagnostico</a></li>
-            <li><a href="/grupo-mano">Grupo M.A.No</a></li>
+            <li><Link to="/sobre-mi">Sobre Mi</Link></li>
+            <li><Link to="/diagnostico">Diagnostico</Link></li>
+            <li><Link to="/grupo-mano">Grupo M.A.No</Link></li>
             </ul>
         </nav>
     </header>
