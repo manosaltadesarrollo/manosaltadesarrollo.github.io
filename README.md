@@ -59,7 +59,9 @@ Este proyecto es de uso privado para el cliente Dr. Fernando Juarez Cesca. Todos
 
 Para consultas sobre el desarrollo:
 Verónica Torres – PM del proyecto - https://www.linkedin.com/in/verofxtorres/
+
 Ignacio Montaldi - Desarrollo FrontEnd - https://www.linkedin.com/in/ignacio-montaldi/
+
 Gimena Abregu - Diseño de marca - https://www.linkedin.com/in/gimeabregu/
 
 Desarrollado con ❤️ y foco en inclusión, accesibilidad y experiencia del paciente.
