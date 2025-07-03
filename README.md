@@ -14,7 +14,7 @@ Brindar información clara sobre procedimientos quirúrgicos y/o rehabilitación
 
 🧩 Tecnologías utilizadas
 
-React (con Vite)
+React
 
 CSS Modules 
 
@@ -58,6 +58,7 @@ Este proyecto es de uso privado para el cliente Dr. Fernando Juarez Cesca. Todos
 👤 Contacto
 
 Para consultas sobre el desarrollo:
+
 Verónica Torres – PM del proyecto - https://www.linkedin.com/in/verofxtorres/
 
 Ignacio Montaldi - Desarrollo FrontEnd - https://www.linkedin.com/in/ignacio-montaldi/
