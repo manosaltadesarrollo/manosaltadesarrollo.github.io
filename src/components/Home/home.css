@@ -58,8 +58,8 @@
 
 @media (min-width: 1024px) {
     #slogan-btn-container {
-        @apply -top-56;
-        @apply inset-0;
+        @apply top-48;
+        @apply inset-x-0;
     }
 
     #slogan-btn-container h1 {

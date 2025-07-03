@@ -13,7 +13,7 @@
 
 @media (min-width: 768px) and (max-width: 1024px) {
     #carousel-container {
-        @apply top-[113px];
+        @apply top-[110px];
         @apply h-[90vw];
         @apply max-h-[350px];
     }
@@ -23,6 +23,6 @@
     #carousel-container {
         @apply top-[110px];
         @apply h-[90vw];
-        @apply max-h-[400px];
+        @apply max-h-[450px];
     }
 }
