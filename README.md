@@ -26,8 +26,8 @@ Herramientas IA para diseño: Figma
 
 Clonar el repositorio:
 
-git clone https://github.com/usuario/redisenio-dr-cirujano.git
-cd redisenio-dr-cirujano
+git clone [https://github.com/usuario/redisenio-dr-cirujano.git
+cd redisenio-dr-cirujano](https://github.com/ignaciomontaldi/proyecto-mano.git)
 
 Instalar dependencias:
 
