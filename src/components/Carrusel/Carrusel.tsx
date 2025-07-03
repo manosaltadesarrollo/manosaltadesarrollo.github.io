@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import images from '../../constants/images'
+import './carrusel.css'
 const Carrusel = () => {
 
 
@@ -19,7 +20,7 @@ const Carrusel = () => {
 
   return (
     
-    <div className="relative z-0 top-[110px] left-0 w-full h-[90vw] max-h-[450px]">
+    <div id='carousel-container' className="relative z-0 left-0 w-full">
       {images.map((img, index) => (
         <img
           key={index}

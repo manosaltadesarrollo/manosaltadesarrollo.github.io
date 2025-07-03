@@ -2,6 +2,80 @@
 @tailwind components;
 @tailwind utilities;
 
-@media (min-width: 1024px) {
+@media (min-width: 320px) and (max-width: 768px) {
+    #slogan-btn-container {
+        @apply top-40;
+        @apply inset-x-12;
+    }
+
+    #slogan-btn-container h1 {
+        @apply w-[230px];
+        @apply text-sm;
+        @apply p-3;
+    }
+
+    #slogan-btn-container button {
+        @apply mt-4;
+        @apply p-3;
+        @apply text-base
+    }
+
+    #cards {
+        @apply left-0;
+        @apply mb-32;
+        @apply flex-wrap;
+        @apply gap-5;
+        @apply justify-center;
+    }
     
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+    #slogan-btn-container {
+        @apply top-40;
+        @apply inset-x-24;
+    }
+
+    #slogan-btn-container h1 {
+        @apply w-[280px];
+        @apply text-md;
+        @apply py-4;
+        @apply px-3;
+    }
+
+    #slogan-btn-container button {
+        @apply mt-4;
+        @apply p-3;
+        @apply text-sm;
+    }
+
+    #cards {
+        @apply mb-24;
+        @apply justify-around;
+    }
+    
+}
+
+@media (min-width: 1024px) {
+    #slogan-btn-container {
+        @apply -top-56;
+        @apply inset-0;
+    }
+
+    #slogan-btn-container h1 {
+        @apply w-[320px];
+        @apply text-xl;
+        @apply p-3;
+    }
+
+    #slogan-btn-container button {
+        @apply mt-5;
+        @apply p-3;
+        @apply text-sm;
+    }
+
+    #cards {
+        @apply mb-28;
+        @apply justify-around;
+    }
 }

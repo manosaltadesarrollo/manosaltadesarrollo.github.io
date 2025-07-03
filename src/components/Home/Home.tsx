@@ -1,23 +1,23 @@
 import Card from "../Card/Card";
 import Carrusel from "../Carrusel/Carrusel";
 import Contact from "../Contact/Contact";
-
+import './home.css';
 const Home = () => {
   return (
-    <section className="">
+    <section>
       <article>
         <Carrusel />
-        <div className="absolute inset-0 -top-56 flex flex-col justify-center items-center text-center text-softWhite">
-          <h1 className="w-[320px] text-xl p-3 rounded-lg bg-terracotta bg-opacity-50">
+        <div id="slogan-btn-container" className="absolute flex flex-col justify-center items-center text-center text-softWhite">
+          <h1 className=" rounded-lg bg-terracotta bg-opacity-50">
             Cuidando tus manos, devolviendo tu bienestar.
           </h1>
-          <button className="mt-5 p-3 text-sm rounded-sm bg-lilac transition-all duration-300 hover:bg-terracotta hover:underline">
+          <button className="rounded-sm bg-lilac transition-all duration-300 hover:bg-terracotta hover:underline">
             Solicitá tu turno
           </button>
         </div>
         <div
           id="cards"
-          className="relative z-10 mb-28 flex justify-around items-center"
+          className="relative z-10 flex items-center"
         >
           <Card
             title={"Tus manos, en buenas manos"}

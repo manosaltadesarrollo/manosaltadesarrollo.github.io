@@ -1,5 +1,4 @@
-import React from 'react'
-
+import './card.css'
 type CardParams = {
     title: string;
     text: string;
@@ -9,12 +8,12 @@ type CardParams = {
 
 const Card = ({title, text, buttonText, link} : CardParams) => {
   return (
-    <div className='relative bg-lightLilac top-[72px] p-3 w-[30vw] max-w-[300px] rounded-md shadow-[6px_6px_10px_0px_rgba(0,0,0,0.5)]'>
-        <h4 className='font-semibold text-base mb-1'>{title}</h4>
-        <p className='font-light text-base mb-4'>{text}</p>
+    <div className='relative bg-lightLilac rounded-md shadow-[6px_6px_10px_0px_rgba(0,0,0,0.5)]'>
+        <h4 className='font-semibold text-base'>{title}</h4>
+        <p className='font-light text-base'>{text}</p>
         <span className='flex items-center justify-between'>
             <a href={link} className='bg-lilac text-softWhite text-base rounded-sm p-2 transition-all duration-300 hover:bg-tangerine'>{buttonText}</a>
-            <img src='/images/fullcolor1.png' className='w-20' alt='M.A.No'/>
+            <img src='/images/fullcolor1.png' alt='M.A.No'/>
         </span>
     </div>
   )

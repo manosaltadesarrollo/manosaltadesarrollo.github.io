@@ -3,13 +3,13 @@ import './contact.css'
 const Contact = () => {
   return (
     <article id="contact-section" className='mb-12'>
-        <span className="w-full z-10 ">
+        <span className="w-full z-10">
           <h2 className="bg-tangerine text-center text-lg font-semibold text-softWhite">
             Contacto
           </h2>
         </span>
-        <div id="contact-details" className="w-[70%] mx-auto flex items-center justify-around mt-5">
-          <img src="/images/esquina-imac.webp" className="w-1/2 mt-12 rounded-md" alt="esquina-imac" />
+        <div id="contact-details" className="mx-auto flex items-center justify-around mt-5">
+          <img src="/images/esquina-imac.webp" className="w-1/2 rounded-md" alt="esquina-imac" />
           <div id="contact-info">
             <h2 className="text-md font-bold">Ubicación y contacto</h2>
             <span className="flex">

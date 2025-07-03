@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (min-width: 320px) and (max-width: 768px) {
+    #cards div {
+        @apply top-24;
+        @apply left-0;
+        @apply p-3;
+        @apply w-[90vw];
+        @apply max-w-[300px];
+    }
+
+    #cards div h4 {
+        @apply mb-1;
+    }
+
+    #cards div p {
+        @apply mb-4;
+    }
+
+    #cards div span img {
+        @apply w-[4.3rem];
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+
+    #cards div {
+        @apply top-[72px];
+        @apply p-3;
+        @apply w-[60vw];
+        @apply max-w-[300px];
+    }
+
+    #cards div h4 {
+        @apply mb-1;
+    }
+
+    #cards div p {
+        @apply mb-4;
+    }
+
+    #cards div span img {
+        @apply w-20;
+    }
+    
+}
+
+@media (min-width: 1024px) {
+    #cards div {
+        @apply top-[72px];
+        @apply p-3;
+        @apply w-[30vw];
+        @apply max-w-[300px];
+    }
+
+    #cards div h4 {
+        @apply mb-1;
+    }
+
+    #cards div p {
+        @apply mb-4;
+    }
+
+    #cards div span img {
+        @apply w-20;
+    }
+}
