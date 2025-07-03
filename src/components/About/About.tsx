@@ -1,3 +1,5 @@
+import CarruselCompleto from "../CarruselCompleto/CarruselCompleto";
+
 const About = () => {
   return (
     <section id="about-section" className="relative top-[110px]">
@@ -42,7 +44,7 @@ const About = () => {
           </p>
         </div>
         <picture className="relative col-span-5">
-          <img src="/images/IMG_5526.webp" className="rounded-lg w-full object-fill h-max shadow-[6px_6px_10px_0px_rgba(0,0,0,0.5)]" alt="IMG 1" />
+          <CarruselCompleto />
         </picture>
       </article>
       <article
