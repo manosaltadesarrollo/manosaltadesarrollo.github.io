@@ -61,7 +61,7 @@ const CarruselCompleto = () => {
               key={i}
               onClick={() => goToImage(i)}
               className={`
-                w-4 h-4 rounded-full transition-all duration-300
+                w-4 h-4 rounded-full transition-color duration-300
                 ${
                   isActive
                     ? "bg-terracotta scale-125 shadow-lg"

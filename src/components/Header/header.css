@@ -5,13 +5,13 @@
 header #header-nav ul li a {
   @apply hover:text-tangerine;
   @apply hover:underline;
-  @apply transition-all;
+  @apply transition-colors;
   @apply duration-150;
 }
 
 header #header-nav h2:hover {
   @apply hover:text-tangerine;
-  @apply transition-all;
+  @apply transition-colors;
   @apply duration-150;
 }
 

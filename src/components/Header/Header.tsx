@@ -11,7 +11,7 @@ const Header = () => {
   const [visible, setVisible] = useState<boolean>(false)
 
   return (
-    <header className='fixed top-0 left-0 z-50 w-[100%]'>
+    <header className='fixed w-full top-0 left-0 z-50 w-[100%]'>
         <span id="header-info" className='bg-tangerine flex justify-between items-center'>
             <div id='header-info-content'>
               <span id="header-info-email" className='flex items-center'>
