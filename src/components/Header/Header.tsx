@@ -23,7 +23,7 @@ const Header = () => {
               <p className='text-softWhite'>+99 999 9999999</p>
             </span>
             </div>
-            <img src="/images/blanco-grises1.png" alt="M.A.No" />
+            <img src="/proyecto-mano/images/blanco-grises1.png" alt="M.A.No" />
         </span>
         <nav id="header-nav" className='bg-lilac text-softWhite flex'>
             {!visible ? <HiMiniBars3 id='menu-btn' className='hidden' onClick={() => setVisible(!visible)}/> : <FaXmark id='menu-btn' className='hidden' onClick={() => setVisible(!visible)}/>}

@@ -32,7 +32,7 @@ const CarruselCompleto = () => {
     <div id="images-container" className="flex flex-col max-w-[500px] items-center space-y-4">
       <div className="relative w-full h-max">
         <img
-          src={aboutImages[index].src}
+          src={`/proyecto-mano${aboutImages[index].src}`}
           className={`w-full h-full min-h-[200px] object-cover rounded-md transition-opacity duration-200 shadow-[6px_6px_10px_0px_rgba(0,0,0,0.5)] ${
             isFading ? "opacity-50" : "opacity-100"
           }`}
