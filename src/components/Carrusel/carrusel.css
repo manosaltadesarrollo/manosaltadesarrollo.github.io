@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (min-width: 320px) and (max-width: 768px) {
+    #carousel-container {
+        @apply top-[130px];
+        @apply w-full;
+        @apply h-[90vw];
+        @apply max-h-[300px];
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+    #carousel-container {
+        @apply top-[110px];
+        @apply h-[90vw];
+        @apply max-h-[350px];
+    }
+}
+
+@media (min-width: 1024px) {
+    #carousel-container {
+        @apply top-[110px];
+        @apply h-[90vw];
+        @apply max-h-[450px];
+    }
+}

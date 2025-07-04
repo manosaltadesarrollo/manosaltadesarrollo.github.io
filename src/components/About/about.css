@@ -1,0 +1,307 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (min-width:320px) and (max-width:768px) {
+        #about-section {
+        @apply top-[130px];
+        @apply flex;
+        @apply flex-col;
+        @apply items-center;
+        @apply justify-center;
+    }
+        
+    #about-section #about-me {
+        @apply w-[95%];
+        @apply mt-7;
+        @apply flex;
+        @apply flex-col;
+        @apply gap-4;
+        @apply justify-center;
+        @apply items-center;
+    }
+
+    #about-section #about-me picture {
+        @apply w-full;
+        @apply max-w-[350px];
+        @apply h-full;
+    }
+
+    #about-section #about-me #text-container {
+        @apply max-w-[340px];
+    }
+
+    #about-section #about-me #text-container h2 {
+        @apply text-lg;
+    }
+
+    #about-section #about-me #text-container p {
+        @apply mt-2;
+        @apply mb-8;
+        @apply text-base;
+    }
+
+    #about-section #my-experience {
+        @apply w-[95%];
+        @apply flex;
+        @apply flex-col;
+        @apply justify-center;
+        @apply gap-4;
+        @apply items-center;
+    }
+
+    #about-section #my-experience #images-container img {
+        @apply order-1;
+        @apply max-w-[350px];
+        @apply max-h-[250px];
+    }
+
+    #about-section #my-experience #text-container {
+        @apply order-2;
+        @apply text-left;
+        @apply max-w-[340px];
+    }
+
+    #about-section #my-experience #text-container h2 {
+        @apply text-lg;
+        @apply mb-4;
+    }
+
+    #about-section #my-experience #text-container p {
+        @apply text-base;
+        @apply mb-7;
+    }
+
+    #about-section #ilustrator-designer {
+        @apply w-[95%];
+        @apply flex;
+        @apply flex-col;
+        @apply gap-4;
+        @apply justify-center;
+        @apply items-center;
+    }
+
+    #about-section #ilustrator-designer #video-container {
+        @apply w-full;
+        @apply max-w-[350px];
+    }
+
+    #video-container video {
+        @apply object-fill;
+        @apply w-full;
+        @apply max-h-[350px];
+    }
+
+    #about-section #ilustrator-designer #text-container {
+        @apply max-w-[340px];
+    }
+
+    #about-section #ilustrator-designer #text-container h2 {
+        @apply text-lg;
+        @apply mb-4;
+    }
+
+    #about-section #ilustrator-designer #text-container p {
+        @apply text-base;
+        @apply mb-7;
+        @apply mb-40;
+    }
+
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+    #about-section {
+        @apply top-[90px];
+    }
+
+    #about-section #about-me {
+        @apply mt-14;
+        @apply mx-6;
+        @apply mb-16;
+        @apply grid;
+        @apply grid-cols-10;
+        @apply gap-4;
+        @apply items-start;
+    }
+
+    #about-section #about-me picture {
+        @apply col-span-5;
+        @apply self-start;
+    }
+
+    #about-section #about-me #text-container {
+        @apply col-span-5;
+    }
+
+    #about-section #about-me h2 {
+        @apply text-lg;
+        @apply mb-2;
+    }
+
+    #about-section #about-me p {
+        @apply col-span-4;
+    }
+
+    #about-section #my-experience {
+        @apply my-32;
+        @apply mx-6;
+        @apply grid;
+        @apply grid-cols-10;
+        @apply gap-4;
+        @apply items-start;
+    }
+
+    #about-section #my-experience #text-container {
+        @apply col-span-5;
+        @apply flex;
+        @apply flex-col;
+        @apply justify-center;
+        @apply items-start;
+        @apply text-right
+    }
+
+    #about-section #my-experience h2 {
+        @apply self-end;
+        @apply text-lg;
+        @apply mb-2;
+    }
+
+    #about-section #my-experience picture {
+        @apply col-span-5;
+        @apply h-full;
+    }
+
+    #about-section #ilustrator-designer {
+        @apply my-32;
+        @apply mx-6;
+        @apply grid;
+        @apply grid-cols-10;
+        @apply gap-4;
+        @apply justify-center;
+        @apply items-start;
+    }
+
+    #about-section #ilustrator-designer #video-container {
+        @apply col-span-5;
+        @apply mb-12;
+        @apply flex;
+        @apply justify-center;
+        @apply items-center;
+        @apply bg-black;
+        @apply rounded-lg;
+        @apply shadow-[6px_6px_10px_0px_rgba(0,0,0,0.5)];
+        @apply overflow-hidden;
+        @apply max-h-[360px];
+    }
+
+    #about-section #ilustrator-designer #text-container {
+        @apply col-span-4;
+        @apply flex;
+        @apply flex-col;
+        @apply justify-center;
+        @apply items-start;
+    }
+
+    #about-section #ilustrator-designer h2 {
+        @apply text-lg;
+        @apply mb-2;
+    }
+
+}
+
+@media (min-width: 1024px) {
+    #about-section {
+        @apply top-[110px];
+    }
+
+    #about-section #about-me {
+        @apply mt-14;
+        @apply mx-6;
+        @apply mb-32;
+        @apply grid;
+        @apply grid-cols-10;
+        @apply gap-4;
+        @apply justify-start;
+        @apply items-start;
+    }
+
+    #about-section #about-me picture {
+        @apply col-span-5;
+        @apply flex;
+        @apply justify-end;
+    }
+
+    #about-section #about-me #text-container {
+        @apply col-span-4;
+    }
+
+    #about-section #about-me h2 {
+        @apply text-lg;
+        @apply mb-2;
+    }
+
+    #about-section #about-me p {
+        @apply col-span-4;
+    }
+
+    #about-section #my-experience {
+        @apply my-32;
+        @apply mx-6;
+        @apply grid;
+        @apply grid-cols-10;
+        @apply gap-4;
+        @apply items-start;
+    }
+
+    #about-section #my-experience #text-container {
+        @apply col-span-4;
+        @apply col-start-2;
+        @apply flex;
+        @apply flex-col;
+        @apply justify-center;
+        @apply items-start;
+        @apply text-right;
+    }
+
+    #about-section #my-experience h2 {
+        @apply text-lg;
+        @apply mb-2;
+    }
+
+    #about-section #my-experience picture {
+        @apply col-span-5;
+    }
+
+    #about-section #ilustrator-designer {
+        @apply my-32;
+        @apply mx-6;
+        @apply grid;
+        @apply grid-cols-10;
+        @apply gap-4;
+        @apply items-start;
+    }
+
+    #about-section #ilustrator-designer #video-container {
+        @apply col-span-5;
+        @apply max-h-[360px];
+        @apply mb-12;
+        @apply flex;
+        @apply justify-end;
+        @apply items-center;
+        @apply overflow-hidden;
+    }
+
+    #about-section #ilustrator-designer #text-container {
+        @apply col-span-5;
+        @apply flex;
+        @apply flex-col;
+        @apply justify-center;
+        @apply items-start;
+    }
+
+    #about-section #ilustrator-designer h2 {
+        @apply text-lg;
+        @apply mb-2;
+    }
+
+}

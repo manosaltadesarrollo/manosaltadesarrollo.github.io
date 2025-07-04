@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (min-width: 320px) and (max-width: 768px) {
+    #contact-section {
+        @apply flex flex-col items-center justify-center;
+    }
+
+    #contact-section #contact-details {
+        @apply w-[95%] flex flex-wrap items-center justify-center gap-10;
+    }
+
+    #contact-section #contact-details img {
+        @apply w-full;
+        @apply max-w-[300px];
+        @apply h-80;
+    }
+
+    #contact-section #contact-details #contact-info {
+        @apply flex flex-col justify-center items-center gap-y-4;
+    }
+
+    #contact-section #contact-details #contact-info span {
+        @apply w-full;
+    }
+
+    #contact-section #contact-details #contact-info svg {
+        @apply text-lg mr-3 text-terracotta;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+    #contact-section {
+        @apply flex flex-col items-center justify-center;
+    }
+
+    #contact-section #contact-details {
+        @apply flex items-center justify-center gap-x-14;
+    }
+
+    #contact-section #contact-details img {
+        @apply w-full;
+        @apply mt-12;
+        @apply max-w-[300px];
+        @apply h-80;
+    }
+
+    #contact-section #contact-details #contact-info {
+        @apply flex flex-col justify-center items-center gap-y-4;
+    }
+
+    #contact-section #contact-details #contact-info span {
+        @apply w-full;
+    }
+
+    #contact-section #contact-details #contact-info svg {
+        @apply text-lg mr-3 text-terracotta;
+    }
+}
+
+@media (min-width: 1024px) {
+
+    #contact-section #contact-details {
+        @apply w-[70%];
+    }
+
+    #contact-section #contact-details img {
+        @apply mt-12;
+    }
+
+    #contact-section #contact-details #contact-info {
+        @apply flex flex-col items-start gap-y-4;
+    }
+
+    #contact-section #contact-details #contact-info svg {
+        @apply text-lg mr-3 text-terracotta;
+    }
+}

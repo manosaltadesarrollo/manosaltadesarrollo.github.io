@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (min-width:320px) and (max-width:768px) {
+    #turnero {
+        @apply relative;
+        @apply z-50;
+        @apply min-w-[200px];
+        @apply w-[30vw];
+        @apply max-w-[250px];
+        @apply p-6;
+        @apply bg-[#424242];
+        @apply rounded-lg;
+        @apply shadow-xl;
+        @apply flex;
+        @apply flex-col;
+        @apply gap-4;
+        @apply text-white;
+        @apply transition-transform;
+        @apply duration-300;
+        @apply scale-100;
+    }
+
+    #turnero h2 {
+        @apply text-md;
+    }
+
+    #turnero #links-container {
+        @apply flex-col;
+        @apply justify-center;
+        @apply gap-y-7;
+    }
+
+    #turnero #links-container #whatsapp-link {
+        @apply w-full;
+        @apply max-w-[180px];
+        @apply min-h-28;
+        @apply max-h-[150px];
+    }
+
+    #turnero #links-container #whatsapp-link svg {
+        @apply w-12 h-12;
+    }
+
+    #turnero #links-container #imac-link {
+        @apply w-full;
+        @apply min-h-28;
+    }
+
+    #turnero #links-container #imac-link img{
+        @apply w-24;
+    }
+}
+
+@media (min-width: 768px) {
+    #turnero {
+        @apply relative;
+        @apply z-50;
+        @apply w-[50vw];
+        @apply max-w-[550px];
+        @apply p-6;
+        @apply bg-[#424242];
+        @apply rounded-lg;
+        @apply shadow-xl;
+        @apply flex;
+        @apply flex-col;
+        @apply gap-4;
+        @apply text-white;
+        @apply transition-transform;
+        @apply duration-300;
+        @apply scale-100;
+    }
+
+    #turnero #links-container {
+        @apply gap-x-7;
+        @apply justify-between;
+    }
+
+    #turnero #links-container #whatsapp-link {
+        @apply min-w-[120px];
+        @apply w-full;
+        @apply max-w-[180px];
+        @apply max-h-[150px];
+    }
+
+    #turnero #links-container #whatsapp-link svg {
+        @apply w-12 h-12;
+    }
+
+    #turnero #links-container #imac-link {
+        @apply min-w-[120px];
+        @apply w-full;
+        @apply max-w-[180px];
+        @apply max-h-[150px];
+    }
+
+    #turnero #links-container #imac-link img{
+        @apply w-24;
+    }
+}

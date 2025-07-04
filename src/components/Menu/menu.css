@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (min-width: 320px) and (max-width: 768px) {
+  #menu {
+    @apply w-[70vw];
+    @apply max-w-[400px];
+    @apply h-[calc(100vh-8rem)];
+    @apply bg-lilac;
+    @apply top-[130px];
+    @apply left-0;
+    @apply p-3;
+    @apply text-base;
+    @apply gap-y-3;
+  }
+
+    #menu a, #menu h4 {
+        @apply w-fit;
+        @apply p-3;
+    }
+
+    #menu a {
+        @apply hover:text-tangerine;
+        @apply underline;
+    }
+
+    #menu h4 {
+        @apply italic;
+        @apply font-light;
+        @apply underline;
+    }
+}
+
+@media (min-width: 767px) {
+  #menu {
+    @apply hidden;
+  }
+}
