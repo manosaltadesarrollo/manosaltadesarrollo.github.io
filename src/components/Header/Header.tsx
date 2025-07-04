@@ -28,7 +28,7 @@ const Header = () => {
         <nav id="header-nav" className='bg-lilac text-softWhite flex'>
             {!visible ? <HiMiniBars3 id='menu-btn' className='hidden' onClick={() => setVisible(!visible)}/> : <FaXmark id='menu-btn' className='hidden' onClick={() => setVisible(!visible)}/>}
             <Menu visible={visible} setVisible={setVisible}/>
-            <a href='/'><h2 className='font-impact'>Dr. Fernando Juarez Cesca</h2></a>
+            <a href='/proyecto-mano/'><h2 className='font-impact'>Dr. Fernando Juarez Cesca</h2></a>
             <p className='hidden'></p>
             <ul className='flex justify-between items-center'>
             <li><Link to="/sobre-mi">Sobre Mi</Link></li>
