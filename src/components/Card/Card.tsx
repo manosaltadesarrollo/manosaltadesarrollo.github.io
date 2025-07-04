@@ -1,6 +1,7 @@
 import { forwardRef } from 'react';
 import type { Ref } from 'react'
 import './card.css'
+import { Link } from 'react-router-dom';
 
 type CardParams = {
     title: string;
@@ -15,7 +16,7 @@ const Card = forwardRef<HTMLDivElement, CardParams>(({ title, text, buttonText, 
         <h4 className='font-semibold text-base'>{title}</h4>
         <p className='font-light text-base'>{text}</p>
         <span className='flex items-center justify-between'>
-            <a href={link} className='bg-lilac text-softWhite text-base rounded-sm p-2 transition-colors duration-300 hover:bg-tangerine'>{buttonText}</a>
+            <Link to={link} className='bg-lilac text-softWhite text-base rounded-sm p-2 transition-colors duration-300 hover:bg-tangerine'>{buttonText}</Link>
             <img src='/proyecto-mano/images/fullcolor1.png' alt='M.A.No'/>
         </span>
     </div>

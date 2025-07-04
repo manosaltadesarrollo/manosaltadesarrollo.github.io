@@ -4,7 +4,7 @@ import AppRoutes from './routes/Routes'
 
 function App ()  {
   return(
-    <BrowserRouter basename='/proyecto-mano/'>
+    <BrowserRouter basename='/proyecto-mano'>
       <AppRoutes />
     </BrowserRouter>
   )

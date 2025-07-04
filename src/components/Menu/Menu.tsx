@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import "./menu.css";
 
 type MenuParams = {
@@ -26,10 +27,10 @@ const Menu = ({ visible, setVisible }: MenuParams) => {
         flex flex-col p-4
       `}
     >
-      <a href="/">Inicio</a>
-      <a href="/sobre-mi">Sobre mi</a>
-      <a href="/afecciones">Afecciones más frecuentes</a>
-      <a href="">Grupo M.A.No</a>
+      <Link to="/">Inicio</Link>
+      <Link to="/sobre-mi">Sobre mi</Link>
+      <Link to="/afecciones">Afecciones más frecuentes</Link>
+      <Link to="/grupo-mano">Grupo M.A.No</Link>
       <h4 onClick={() => setVisible(!visible)}>Cerrar menú</h4>
     </div>
     </>
