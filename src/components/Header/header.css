@@ -112,7 +112,7 @@ header #header-nav h2:hover {
   }
 
   header #header-nav ul {
-    @apply text-base;
+    @apply text-[17px];
     @apply gap-x-9;
   }
 }

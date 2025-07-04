@@ -29,7 +29,7 @@ const Menu = ({ visible, setVisible }: MenuParams) => {
     >
       <a href="/">Inicio</a>
       <a href="/sobre-mi">Sobre mi</a>
-      <a href="/diagnostico">Diagnóstico</a>
+      <a href="/afecciones">Afecciones más frecuentes</a>
       <a href="">Grupo M.A.No</a>
       <h4 onClick={() => setVisible(!visible)}>Cerrar menú</h4>
     </div>

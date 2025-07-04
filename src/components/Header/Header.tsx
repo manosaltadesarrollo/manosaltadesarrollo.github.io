@@ -32,7 +32,7 @@ const Header = () => {
             <p className='hidden'></p>
             <ul className='flex justify-between items-center'>
             <li><Link to="/sobre-mi">Sobre Mi</Link></li>
-            <li><Link to="/diagnostico">Diagnostico</Link></li>
+            <li><Link to="/afecciones">Afecciones frecuentes</Link></li>
             <li><Link to="/grupo-mano">Grupo M.A.No</Link></li>
             </ul>
         </nav>

@@ -94,7 +94,7 @@ const Home = () => {
             ref={card2Ref}
             title={"Diagnóstico claro y preciso"}
             text={
-              "Explicación de cada paso del tratamiento para que te sientas seguro y comprendido."
+              "Conocé cada paso del proceso para tomar decisiones con tranquilidad y seguridad."
             }
             buttonText={"Haz tu diagnostico"}
             link={"/diagnostico"}

@@ -27,15 +27,15 @@
         @apply h-full;
     }
 
-    #about-section #about-me div {
+    #about-section #about-me #text-container {
         @apply max-w-[340px];
     }
 
-    #about-section #about-me div h2 {
+    #about-section #about-me #text-container h2 {
         @apply text-lg;
     }
 
-    #about-section #about-me div p {
+    #about-section #about-me #text-container p {
         @apply mt-2;
         @apply mb-8;
         @apply text-base;
@@ -129,7 +129,7 @@
         @apply self-start;
     }
 
-    #about-section #about-me div {
+    #about-section #about-me #text-container {
         @apply col-span-5;
     }
 
@@ -161,6 +161,7 @@
     }
 
     #about-section #my-experience h2 {
+        @apply self-end;
         @apply text-lg;
         @apply mb-2;
     }
@@ -230,7 +231,7 @@
         @apply justify-end;
     }
 
-    #about-section #about-me div {
+    #about-section #about-me #text-container {
         @apply col-span-4;
     }
 
