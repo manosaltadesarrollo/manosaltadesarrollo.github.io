@@ -11,7 +11,7 @@ const config: Config = {
     extend: {
       fontFamily: {
         alexandria: ["Alexandria", "sans-serif"],
-        impact: ["Impact", "sans-serif"],
+        impact: ['"Anton"', "sans-serif"],
       },
       colors: {
         terracotta: "#8D2D17",

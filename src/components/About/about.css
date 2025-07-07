@@ -264,6 +264,7 @@
     }
 
     #about-section #my-experience h2 {
+        @apply self-end;
         @apply text-lg;
         @apply mb-2;
     }

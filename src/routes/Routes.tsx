@@ -5,6 +5,7 @@ import About from "../components/About/About";
 import Footer from "../components/Footer/Footer";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
+import Afecciones from "../components/Afecciones/Afecciones";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -18,6 +19,7 @@ const AppRoutes = () => {
         <Routes>
           <Route path="/" element={<Home key={location.pathname} />} />
           <Route path="/sobre-mi" element={<About />} />
+          <Route path="/afecciones" element={<Afecciones />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

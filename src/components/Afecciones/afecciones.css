@@ -1,0 +1,131 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+#afecciones-section
+  #inputs-description-container
+  #inputs-container
+  div
+  select:focus {
+  @apply border-[3px];
+  @apply border-darkCoral;
+}
+
+@media (min-width: 320px) and (max-width: 768px) {
+  #afecciones-section {
+    @apply w-[95%];
+    @apply mx-auto;
+    @apply relative;
+    @apply top-40;
+    @apply flex;
+    @apply flex-col;
+    @apply justify-center;
+    @apply items-center;
+  }
+
+  #afecciones-section #inputs-description-container {
+    @apply w-full;
+    @apply flex-col;
+    @apply justify-center;
+    @apply items-center;
+  }
+
+  #afecciones-section #inputs-description-container #inputs-container div {
+    @apply w-full;
+    @apply mb-5;
+    @apply flex;
+    @apply flex-col;
+    @apply justify-center;
+    @apply items-center;
+  }
+
+  #afecciones-section #inputs-description-container #inputs-container div h2 {
+    @apply w-[99%];
+    @apply text-center;
+    @apply text-md;
+    @apply mb-4;
+  }
+
+  #afecciones-section
+    #inputs-description-container
+    #inputs-container
+    div
+    select {
+    @apply px-3;
+    @apply py-1;
+    @apply text-sm;
+    @apply w-full;
+    @apply max-w-[150px];
+  }
+
+  #afecciones-section #inputs-description-container #description-container {
+    @apply w-full;
+    @apply mt-16;
+    @apply mb-8;
+    @apply max-w-[500px];
+  }
+
+  #afecciones-section #inputs-description-container #description-container h1 {
+    @apply text-center;
+  }
+
+  #afecciones-section #inputs-description-container #description-container p {
+    @apply text-center;
+  }
+
+  #afecciones-section #warning-msg {
+    @apply text-[16px];
+    @apply mb-56;
+  }
+}
+
+@media (min-width: 768px) {
+  #afecciones-section {
+    @apply w-full;
+    @apply relative;
+    @apply top-48;
+    @apply flex;
+    @apply flex-col;
+    @apply gap-y-16;
+    @apply justify-center;
+    @apply items-center;
+  }
+
+  #afecciones-section #inputs-description-container {
+    @apply w-[80vw];
+    @apply max-w-[1280px];
+  }
+
+  #afecciones-section #inputs-description-container #inputs-container div {
+    @apply w-max;
+    @apply mb-5;
+    @apply flex;
+    @apply flex-col;
+  }
+
+  #afecciones-section #inputs-description-container #inputs-container div h2 {
+    @apply text-md;
+    @apply mb-4;
+  }
+
+  #afecciones-section
+    #inputs-description-container
+    #inputs-container
+    div
+    select {
+    @apply px-3;
+    @apply py-1;
+    @apply text-base;
+    @apply w-full;
+    @apply max-w-[250px];
+  }
+
+  #afecciones-section #inputs-description-container #description-container {
+    @apply w-[40vw];
+    @apply max-w-[500px];
+  }
+
+  #afecciones-section #warning-msg {
+    @apply w-3/4;
+  }
+}
