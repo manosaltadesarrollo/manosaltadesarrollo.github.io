@@ -27,10 +27,10 @@ const Menu = ({ visible, setVisible }: MenuParams) => {
         flex flex-col p-4
       `}
     >
-      <Link to="/">Inicio</Link>
-      <Link to="/sobre-mi">Sobre mi</Link>
-      <Link to="/afecciones">Afecciones más frecuentes</Link>
-      <Link to="/grupo-mano">Grupo M.A.No</Link>
+      <Link onClick={() => setVisible(!visible)} to="/">Inicio</Link>
+      <Link onClick={() => setVisible(!visible)} to="/sobre-mi">Sobre mi</Link>
+      <Link onClick={() => setVisible(!visible)} to="/afecciones">Afecciones más frecuentes</Link>
+      <Link onClick={() => setVisible(!visible)} to="/grupo-mano">Grupo M.A.No</Link>
       <h4 onClick={() => setVisible(!visible)}>Cerrar menú</h4>
     </div>
     </>

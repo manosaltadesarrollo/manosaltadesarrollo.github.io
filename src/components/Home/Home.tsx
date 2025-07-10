@@ -29,7 +29,7 @@ const Home = () => {
       },
       {
         opacity: 1,
-        duration: 1.5,
+        duration: 1,
         ease: "power2.out"
       }
     )
@@ -43,7 +43,7 @@ const Home = () => {
       {
         x: 0,
         opacity: 1,
-        duration: 1,
+        duration: 0.5,
         ease: "power2.out"
       }
     ).fromTo(card2Elem,
@@ -54,7 +54,7 @@ const Home = () => {
       {
         x: 0,
         opacity: 1,
-        duration: 1,
+        duration: 0.5,
         ease: "power2.out"
       })
 
@@ -97,7 +97,7 @@ const Home = () => {
               "Conocé cada paso del proceso para tomar decisiones con tranquilidad y seguridad."
             }
             buttonText={"Haz tu diagnostico"}
-            link={"/diagnostico"}
+            link={"/afecciones"}
           />
         </div>
       </article>

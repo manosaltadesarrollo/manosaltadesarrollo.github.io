@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import gsap from "gsap";
 import ScrollTrigger from "gsap/ScrollTrigger";
 import CarruselCompleto from "../CarruselCompleto/CarruselCompleto";
+import {aboutImages} from "../../constants/images";
 import "./about.css";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -89,7 +90,7 @@ const AboutSection = () => {
           </p>
         </div>
         <picture className="relative">
-          <CarruselCompleto />
+          <CarruselCompleto images={aboutImages}/>
         </picture>
       </article>
 

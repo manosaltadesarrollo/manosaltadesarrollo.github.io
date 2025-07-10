@@ -18,6 +18,7 @@ header #header-nav h2:hover {
 @media (min-width: 320px) and (max-width: 767px) {
   header #header-info {
     @apply p-2;
+    @apply h-[60px];
   }
 
   header #header-info div {

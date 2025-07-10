@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (min-width: 320px) and (max-width: 768px) {
+    #grupo-mano-section #grupo-mano-tablet {
+        @apply hidden;
+    }
+
+    #grupo-mano-mobile {
+        @apply w-[95%];
+        @apply mx-auto;
+        @apply mt-32;
+        @apply flex;
+        @apply flex-col;
+        @apply items-center;
+        @apply text-center;
+    }
+
+    #grupo-mano-mobile #mano-head {
+    @apply w-full;
+  }
+
+  #grupo-mano-mobile #mano-head h1 {
+    @apply text-xl;
+    @apply mb-2;
+  }
+  #grupo-mano-mobile #mano-head h2 {
+    @apply mb-2;
+  }
+
+  #grupo-mano-mobile #mano-description p {
+    @apply mt-4;
+    @apply mb-8;
+    @apply text-base;
+  }
+}
+
+@media (min-width: 768px) {
+
+  #grupo-mano-tablet {
+    @apply w-full;
+    @apply max-w-[100vw];
+    @apply overflow-y-hidden;
+    @apply mt-48;
+    @apply px-6;
+    @apply py-1;
+    @apply grid;
+    @apply grid-cols-12;
+    @apply gap-x-3;
+    @apply items-start;
+  }
+
+  #grupo-mano-tablet #mano-carrusel-container {
+    @apply col-span-4;
+    @apply col-start-2;
+  }
+
+  #grupo-mano-tablet #mano-carrusel-container img {
+    @apply min-h-[400px];
+  }
+
+  #grupo-mano-tablet #mano-description {
+    @apply min-w-[300px];
+    @apply w-full;
+    @apply max-w-[500px];
+    @apply col-span-6;
+    @apply col-start-7;
+  }
+
+  #grupo-mano-tablet #mano-description h1 {
+    @apply text-xl;
+    @apply mb-4;
+  }
+  #grupo-mano-tablet #mano-description h2 {
+    @apply text-lg;
+    @apply mb-2;
+  }
+
+  #grupo-mano-tablet #mano-description p {
+    @apply text-base;
+    @apply h-fit;
+  }
+}

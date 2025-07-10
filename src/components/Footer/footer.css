@@ -60,7 +60,7 @@
         @apply text-2xl;
     }
 
-    footer #footer-socials ul li p {
+    footer #footer-socials ul li a {
         @apply text-base;
         @apply font-light;
     }
@@ -100,10 +100,19 @@
         @apply min-w-24;
         @apply w-full;
         @apply h-24;
-        @apply self-center
+        @apply self-center;
+    }
+
+    footer #footer-socials {
+        @apply w-[40%];
+    }
+
+    footer #footer-socials ul {
+        @apply items-end;
     }
 
     footer #footer-socials ul li{
+        @apply w-fit;
         @apply mb-5;
         @apply flex;
         @apply items-center;
@@ -114,8 +123,9 @@
         @apply text-2xl;
     }
 
-    footer #footer-socials ul li p {
+    footer #footer-socials ul li a {
         @apply text-base;
+        @apply text-wrap;
         @apply font-light;
     }
 }

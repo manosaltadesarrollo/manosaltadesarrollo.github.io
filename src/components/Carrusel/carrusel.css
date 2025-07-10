@@ -4,7 +4,7 @@
 
 @media (min-width: 320px) and (max-width: 768px) {
     #carousel-container {
-        @apply top-[130px];
+        @apply top-[114px];
         @apply w-full;
         @apply h-[90vw];
         @apply max-h-[300px];

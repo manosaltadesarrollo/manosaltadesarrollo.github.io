@@ -74,8 +74,9 @@
   }
 
   #afecciones-section #warning-msg {
+    @apply mb-48;
+    @apply h-fit;
     @apply text-[16px];
-    @apply mb-56;
   }
 }
 
@@ -92,8 +93,8 @@
   }
 
   #afecciones-section #inputs-description-container {
-    @apply w-[80vw];
-    @apply max-w-[1280px];
+    @apply w-[90vw];
+    @apply max-w-[1000px];
   }
 
   #afecciones-section #inputs-description-container #inputs-container div {

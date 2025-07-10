@@ -14,13 +14,13 @@ const Header = () => {
     <header className='fixed w-full top-0 left-0 z-50 w-[100%]'>
         <span id="header-info" className='bg-tangerine flex justify-between items-center'>
             <div id='header-info-content'>
-              <span id="header-info-email" className='flex items-center'>
+              {/* <span id="header-info-email" className='w-full text-wrap flex items-center'>
               <HiAtSymbol className='text-softWhite'/>
-              <p className='text-softWhite'>correo@correo.com</p>
-            </span>
+              <p className='text-softWhite text-wrap w-full'></p>
+            </span> */}
             <span id='header-info-phone' className='flex items-center'>
               <FaPhone className='text-softWhite'/>
-              <p className='text-softWhite'>+99 999 9999999</p>
+              <p className='text-softWhite'>+54 387 5515111</p>
             </span>
             </div>
             <img src="/proyecto-mano/images/blanco-grises1.png" alt="M.A.No" />

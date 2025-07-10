@@ -24,7 +24,7 @@ const Contact = () => {
       {
         y: 0,
         opacity: 1,
-        duration: 1,
+        duration: 0.4,
         ease: "power2.out",
         scrollTrigger: {
           trigger: contactElem,
@@ -62,15 +62,15 @@ const Contact = () => {
               <FaRegCalendar />
               <ul>
                 <li className='text-base font-semibold'>Turnos</li>
-                <li>+99 999 9999999</li>
-                <li>correo@correo.com</li>
+                <li>+54 0387 5515111</li>
+                <li>cirugiademanosalta@gmail.com</li>
               </ul>
             </span>
             <span className="flex">
               <FaPhone  />
               <ul>
                 <li className='text-base font-semibold'>Si sos del interior de Salta</li>
-                <li>+99 999 9999999</li>
+                <li>+54 0387 5515111</li>
               </ul>
             </span>
           </div>
