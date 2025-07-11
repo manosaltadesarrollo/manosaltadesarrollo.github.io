@@ -24,6 +24,9 @@ const Footer = () => {
               <FaInstagram />
               <a className="hover:underline" href="https://www.instagram.com/ferjuarezcesca.ilustraciones/" target="_blank">ferjuarezcesca.ilustraciones</a>
           </li>
+          <li>
+            <p>© Copyright {new Date().getFullYear()} - Todos los derechos reservados</p>
+          </li>
         </ul>
       </div>
     </footer>

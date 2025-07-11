@@ -103,6 +103,7 @@ const AboutSection = () => {
             autoPlay
             loop
             muted
+            playsInline
             preload="metadata"
             className="w-full max-w-[600px] bg-transparent shadow-[6px_6px_10px_0px_rgba(0,0,0,0.5)] rounded-lg h-auto"
           >
