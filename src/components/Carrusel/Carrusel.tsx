@@ -26,6 +26,8 @@ const Carrusel = () => {
               : "opacity-0 z-0 pointer-events-none"
           }`}
           alt={`IMG ${index + 1}`}
+          loading={index === currentIndex ? undefined : "lazy"}
+          fetchPriority={index === currentIndex ? "high" : undefined}
         />
       ))}
     </div>

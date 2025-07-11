@@ -32,15 +32,23 @@ const CarruselCompleto = ({images} : CarruselCompletoParams) => {
     }, 200);
   };
 
+  const isFirstImage = index === 0;
+
   return (
     <div id="images-container" className="flex flex-col max-w-[500px] items-center space-y-4">
-      <div className="relative w-full h-max">
+      <picture className="relative w-full h-max">
+        <source
+          srcSet={`/proyecto-mano${images[index].src.replace(".jpg", ".webp")}`}
+          type="image/webp"
+        />
         <img
           src={`/proyecto-mano${images[index].src}`}
           className={`w-full h-full min-h-[200px] object-cover rounded-md transition-opacity duration-200 shadow-[6px_6px_10px_0px_rgba(0,0,0,0.5)] ${
             isFading ? "opacity-50" : "opacity-100"
           }`}
           alt={`IMG ${index + 1}`}
+          loading={isFirstImage ? "eager" : "lazy"}
+          fetchPriority={isFirstImage ? "high" : undefined}
         />
 
         <div className="absolute top-1/2 left-0 w-full px-4 flex justify-between transform -translate-y-1/2">
@@ -57,7 +65,7 @@ const CarruselCompleto = ({images} : CarruselCompletoParams) => {
             size={32}
           />
         </div>
-      </div>
+      </picture>
 
       <div className="flex space-x-2 mt-2">
         {images.map((_, i) => {

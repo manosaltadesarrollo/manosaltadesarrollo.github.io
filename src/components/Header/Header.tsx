@@ -1,4 +1,3 @@
-import { HiAtSymbol } from 'react-icons/hi'
 import './header.css'
 import { FaPhone } from 'react-icons/fa'
 import { HiMiniBars3 } from 'react-icons/hi2'
