@@ -22,12 +22,12 @@ const Header = () => {
               <p className='text-softWhite'>+54 387 5515111</p>
             </span>
             </div>
-            <img src="/proyecto-mano/images/blanco-grises1.png" alt="M.A.No" />
+            <img src="/webmanosalta/images/blanco-grises1.png" alt="M.A.No" />
         </span>
         <nav id="header-nav" className='bg-lilac text-softWhite flex'>
             {!visible ? <HiMiniBars3 id='menu-btn' className='hidden' onClick={() => setVisible(!visible)}/> : <FaXmark id='menu-btn' className='hidden' onClick={() => setVisible(!visible)}/>}
             <Menu visible={visible} setVisible={setVisible}/>
-            <a href='/proyecto-mano/'><h2 className='font-impact'>Dr. Fernando Juarez Cesca</h2></a>
+            <a href='/webmanosalta/'><h2 className='font-impact'>Dr. Fernando Juarez Cesca</h2></a>
             <p className='hidden'></p>
             <ul className='flex justify-between items-center'>
             <li><Link to="/sobre-mi">Sobre Mi</Link></li>
