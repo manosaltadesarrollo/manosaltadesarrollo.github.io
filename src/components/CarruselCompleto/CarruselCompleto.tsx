@@ -38,11 +38,11 @@ const CarruselCompleto = ({images} : CarruselCompletoParams) => {
     <div id="images-container" className="flex flex-col max-w-[500px] items-center space-y-4">
       <picture className="relative w-full h-max">
         <source
-          srcSet={`/webmanosalta${images[index].src.replace(".jpg", ".webp")}`}
+          srcSet={`${images[index].src.replace(".jpg", ".webp")}`}
           type="image/webp"
         />
         <img
-          src={`/webmanosalta${images[index].src}`}
+          src={`${images[index].src}`}
           className={`w-full h-full min-h-[200px] object-cover rounded-md transition-opacity duration-200 shadow-[6px_6px_10px_0px_rgba(0,0,0,0.5)] ${
             isFading ? "opacity-50" : "opacity-100"
           }`}

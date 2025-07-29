@@ -17,7 +17,7 @@ const Card = forwardRef<HTMLDivElement, CardParams>(({ title, text, buttonText, 
         <p className='font-light text-base'>{text}</p>
         <span className='flex items-center justify-between'>
             <Link to={link} className='bg-lilac text-softWhite text-base rounded-sm p-2 transition-colors duration-300 hover:bg-tangerine'>{buttonText}</Link>
-            <img src='/webmanosalta/images/fullcolor1.png' alt='M.A.No'/>
+            <img src='/images/fullcolor1.png' alt='M.A.No'/>
         </span>
     </div>
   )
