@@ -1,4 +1,10 @@
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import Header from "../components/Header/Header";
 import Home from "../components/Home/Home";
 import About from "../components/About/About";
@@ -6,12 +12,23 @@ import Footer from "../components/Footer/Footer";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import gsap from "gsap";
 import ScrollToTop from "../components/ScrollToTop/ScrollToTop";
-import NotAvailable from '../components/NotAvailable/NotAvailable';
+import NotAvailable from "../components/NotAvailable/NotAvailable";
+import { useEffect } from "react";
 
 gsap.registerPlugin(ScrollTrigger);
 
 const AppRoutes = () => {
   const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const redirect = params.get("redirect");
+    if (redirect) {
+      navigate(redirect, { replace: true });
+      window.history.replaceState({}, "", redirect);
+    }
+  }, [navigate]);
 
   return (
     <>

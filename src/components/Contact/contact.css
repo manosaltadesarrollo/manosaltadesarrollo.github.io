@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+    #contact-section #contact-details #contact-info svg:nth-child(1) {
+        @apply hover:text-lilac;
+    }
+
 @media (min-width: 320px) and (max-width: 768px) {
     #contact-section {
         @apply flex flex-col items-center justify-center;
