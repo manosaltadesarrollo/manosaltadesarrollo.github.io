@@ -61,7 +61,7 @@ const AboutSection = () => {
       <article id="about-me" className="flex flex-col items-center gap-6">
         <picture className="w-full">
           <img
-            src="/images/IMG_9457.webp"
+            src="/webmanosalta/images/IMG_9457.webp"
             className="w-full max-w-[500px] h-auto object-cover rounded-lg shadow-[6px_6px_10px_0px_rgba(0,0,0,0.5)]"
             alt="Sobre mi"
           />
@@ -107,7 +107,7 @@ const AboutSection = () => {
             preload="metadata"
             className="w-full max-w-[600px] bg-transparent shadow-[6px_6px_10px_0px_rgba(0,0,0,0.5)] rounded-lg h-auto"
           >
-            <source src="/media/video-about.mp4" type="video/mp4" />
+            <source src="/webmanosalta/media/video-about.mp4" type="video/mp4" />
           </video>
         </div>
         <div id="text-container" className="flex flex-col">
