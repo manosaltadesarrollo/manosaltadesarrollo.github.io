@@ -32,7 +32,7 @@ const Header = () => {
           </span>
         </div>
         <img
-          src="/manosaltadesarrollo/images/blanco-grises1.png"
+          src="/images/blanco-grises1.png"
           alt="M.A.No"
         />
       </span>

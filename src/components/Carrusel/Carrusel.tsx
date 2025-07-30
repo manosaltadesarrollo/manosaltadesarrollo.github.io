@@ -19,7 +19,7 @@ const Carrusel = () => {
       {homeImages.map((img, index) => (
         <img
           key={index}
-          src={`/manosaltadesarrollo${img.src}`}
+          src={`${img.src}`}
           className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-1000 ease-in-out ${
             index === currentIndex
               ? "opacity-100 z-10"

@@ -54,7 +54,7 @@ const Turnero = ({ show, setShow }: TurneroParams) => {
                 className="flex flex-col w-1/2 max-w-[180px] max-h-[150px] items-center text-md p-2 justify-between rounded-md bg-[#F0F0F0] border-2 border-[#1D8166] hover:bg-[#1D8166]/20 hover:underline"
               >
                 <img
-                  src="/manosaltadesarrollo/images/imac.png"
+                  src="/images/imac.png"
                   alt="IMAC"
                   className="object-cover"
                 />
