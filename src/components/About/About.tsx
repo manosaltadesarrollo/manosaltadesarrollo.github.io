@@ -73,7 +73,7 @@ const AboutSection = () => {
             con título otorgado por la Asociación Argentina de Ortopedia y
             Traumatología. Miembro titular de la Asociación Argentina de Cirugía
             de la Mano y docente universitario en la carrera de cirugía de la
-            mano (UCES) y fundador del Grupo M.A.No.
+            mano (UCES). Fundador del Grupo M.A.No.
           </p>
         </div>
       </article>
@@ -113,8 +113,8 @@ const AboutSection = () => {
         <div id="text-container" className="flex flex-col">
           <h2 className="text-terracotta font-bold mb-4">Ilustrador digital</h2>
           <p className="text-base">
-            Trabajo, principalmente, con pedidos de técnicas quirúrgicas, con
-            dibujos, realizas y animaciones que hagan realidad y mejoren tus
+            Trabajo, principalmente, con pedidos de técnicas quirúrgicas,
+            dibujos realistas y animaciones que hagan realidad y mejoren tus
             charlas. Ya sea que necesites una ilustración para tu marca, tu
             libro, tus redes sociales o simplemente quieras dar vida a una idea
             que tienes en mente, estoy aquí para ayudarte a hacerla realidad.
