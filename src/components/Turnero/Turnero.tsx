@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { FaWhatsapp } from "react-icons/fa";
 import './turnero.css'
+import { FaXmark } from "react-icons/fa6";
 type TurneroParams = {
   show: boolean;
   setShow: (show: boolean) => void;
@@ -34,6 +35,9 @@ const Turnero = ({ show, setShow }: TurneroParams) => {
             id="turnero"
             onClick={(e) => e.stopPropagation()}
           >
+            <span onClick={() => setShow(false)} id="close-btn" className="absolute -right-4 -top-4 bg-red-500 rounded-full p-2 hover:bg-[#EF9A9A] hover:text-red-500 hover:cursor-pointer">
+              <FaXmark className="text-lg"/>
+            </span>
             <h2 className="text-lg text-center text-softWhite">Pedir turno</h2>
             <span id="links-container" className="flex">
               <a
