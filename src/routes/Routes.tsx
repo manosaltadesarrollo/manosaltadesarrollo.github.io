@@ -14,6 +14,7 @@ import gsap from "gsap";
 import ScrollToTop from "../components/ScrollToTop/ScrollToTop";
 import NotAvailable from "../components/NotAvailable/NotAvailable";
 import { useEffect } from "react";
+import Afecciones from "../components/Afecciones/Afecciones";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -33,12 +34,12 @@ const AppRoutes = () => {
   return (
     <>
       <Header />
-      <main className="min-h-screen">
+      <main className="h-max">
         <ScrollToTop />
         <Routes>
           <Route path="/" element={<Home key={location.pathname} />} />
           <Route path="/sobre-mi" element={<About />} />
-          <Route path="/afecciones" element={<NotAvailable />} />
+          <Route path="/afecciones" element={<Afecciones />} />
           <Route path="/grupo-mano" element={<NotAvailable />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

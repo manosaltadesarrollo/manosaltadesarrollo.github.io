@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import "./afecciones.css";
+import { buscarDescripcion } from '../../utils/buscarDescripcion';
+import type { Causa, ParteCuerpo } from "../../types/afecciones.types";
 
 const Afecciones = () => {
   const inputsContainerRef = useRef<HTMLDivElement | null>(null);
@@ -12,6 +14,10 @@ const Afecciones = () => {
   const [showDesc, setShowDesc] = useState<boolean>(false);
   const [isMounted, setIsMounted] = useState<boolean>(false);
   const [isDescMounted, setIsDescMounted] = useState<boolean>(false);
+  const [pain, setPain] = useState<ParteCuerpo>("hombro");
+  const [trauma, setTrauma] = useState<Causa>(1);
+  const [description, setDescription] = useState<string>("");
+
 
   // Animación inicial del primer input (siempre visible)
   useEffect(() => {
@@ -59,7 +65,6 @@ const Afecciones = () => {
   }, [isMounted]);
 
   useEffect(() => {
-
     if (showDesc) {
       setIsDescMounted(true);
     } else {
@@ -79,23 +84,23 @@ const Afecciones = () => {
   }, [showDesc]);
 
   useEffect(() => {
-  const container = inputsContainerRef.current;
-  if (!container) return;
+    const container = inputsContainerRef.current;
+    if (!container) return;
 
-  if (showDesc) {
-    gsap.to(container, {
-      x: 0,
-      duration: 0.4,
-      ease: "power2.out",
-    });
-  } else {
-    gsap.to(container, {
-      x: 0,
-      duration: 0.4,
-      ease: "power2.out",
-    });
-  }
-}, [showDesc])
+    if (showDesc) {
+      gsap.to(container, {
+        x: 0,
+        duration: 0.4,
+        ease: "power2.out",
+      });
+    } else {
+      gsap.to(container, {
+        x: 0,
+        duration: 0.4,
+        ease: "power2.out",
+      });
+    }
+  }, [showDesc]);
 
   useEffect(() => {
     if (isDescMounted) {
@@ -110,10 +115,19 @@ const Afecciones = () => {
     }
   }, [isDescMounted]);
 
+  useEffect(() => {
+    const desc = buscarDescripcion(pain, trauma);
+    if(!desc) return undefined;
+    setDescription(desc);
+  },[pain, trauma])
+
   const handleShowInput = (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (e.target.value !== "0") {
+      const selectedValue = e.target.value as ParteCuerpo;
+      setPain(selectedValue)
       setShowInput(true);
     } else {
+      setPain(0);
       setShowInput(false);
       setShowDesc(false);
     }
@@ -121,8 +135,10 @@ const Afecciones = () => {
 
   const handleShowDesc = (e: React.ChangeEvent<HTMLSelectElement>) => {
     if (e.target.value !== "0") {
+      setTrauma(Number(e.target.value) as Causa);
       setShowDesc(true);
     } else {
+      setTrauma(0);
       setShowInput(false);
       setShowDesc(false);
     }
@@ -139,20 +155,21 @@ const Afecciones = () => {
         <div
           id="inputs-container"
           ref={inputsContainerRef}
-          className={`w-max flex flex-col items-start ${showDesc ? "shifted" : ""}`}
+          className={`w-max flex flex-col items-start ${
+            showDesc ? "shifted" : ""
+          }`}
         >
           <div ref={firstInputRef}>
-            <h2 className="font-medium">Indique donde le duele</h2>
+            <h2 className="font-medium">¿Donde sientes tu dolor?</h2>
             <select
               className="border-[3px] border-terracotta rounded-sm"
               onChange={handleShowInput}
             >
               <option value="0">----------</option>
-              <option value="1">Codo</option>
-              <option value="2">Hombro</option>
-              <option value="3">Muñeca</option>
-              <option value="4">Mano</option>
-              <option value="5">Dedos</option>
+              <option value="hombro">Hombro</option>
+              <option value="codo">Codo</option>
+              <option value="muñeca">Muñeca</option>
+              <option value="mano">Mano</option>
             </select>
           </div>
 
@@ -164,24 +181,24 @@ const Afecciones = () => {
                 onChange={handleShowDesc}
               >
                 <option value="0">----------</option>
-                <option value="1">Caida</option>
-                <option value="2">Golpe</option>
-                <option value="3">Fractura</option>
+                <option value="1">Golpe, accidente</option>
+                <option value="2">Dolor por esfuerzo</option>
               </select>
             </div>
           )}
         </div>
 
         {isDescMounted && (
-          <div ref={descRef} id="description-container">
+          <>
+          {buscarDescripcion(pain, trauma) && (
+            <div ref={descRef} id="description-container">
             <h1 className="text-md mb-4 font-medium">Descripción</h1>
             <p className="text-base">
-              Lorem ipsum dolor sit amet consectetur adipisicing elit. Optio,
-              reprehenderit magni! Laborum exercitationem, neque cum dignissimos
-              blanditiis debitis excepturi, sunt id, voluptate rem molestiae qui
-              perferendis numquam maiores ducimus fuga.
+              {description}
             </p>
           </div>
+          )}
+          </>
         )}
       </article>
 

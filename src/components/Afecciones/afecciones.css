@@ -15,8 +15,7 @@
   #afecciones-section {
     @apply w-[95%];
     @apply mx-auto;
-    @apply relative;
-    @apply top-40;
+    @apply mt-40;
     @apply flex;
     @apply flex-col;
     @apply justify-center;
@@ -55,13 +54,12 @@
     @apply py-1;
     @apply text-sm;
     @apply w-full;
-    @apply max-w-[150px];
+    @apply max-w-[250px];
   }
 
   #afecciones-section #inputs-description-container #description-container {
     @apply w-full;
-    @apply mt-16;
-    @apply mb-8;
+    @apply my-4;
     @apply max-w-[500px];
   }
 
@@ -74,7 +72,7 @@
   }
 
   #afecciones-section #warning-msg {
-    @apply mb-48;
+    @apply mb-4;
     @apply h-fit;
     @apply text-[16px];
   }
@@ -84,7 +82,7 @@
   #afecciones-section {
     @apply w-full;
     @apply relative;
-    @apply top-48;
+    @apply mt-40;
     @apply flex;
     @apply flex-col;
     @apply gap-y-16;
@@ -127,6 +125,7 @@
   }
 
   #afecciones-section #warning-msg {
+    @apply mb-10;
     @apply w-3/4;
   }
 }
