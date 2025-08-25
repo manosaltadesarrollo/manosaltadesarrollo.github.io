@@ -14,8 +14,9 @@
 @media (min-width: 320px) and (max-width: 768px) {
   #afecciones-section {
     @apply w-[95%];
+    @apply max-w-[100vw];
     @apply mx-auto;
-    @apply mt-40;
+    @apply mt-32;
     @apply flex;
     @apply flex-col;
     @apply justify-center;
@@ -31,6 +32,8 @@
 
   #afecciones-section #inputs-description-container #inputs-container div {
     @apply w-full;
+    @apply max-w-[100vw];
+    @apply mx-auto;
     @apply mb-5;
     @apply flex;
     @apply flex-col;
@@ -49,17 +52,37 @@
     #inputs-description-container
     #inputs-container
     div
+    #btn-group {
+    @apply w-full max-w-[400px] flex flex-row flex-wrap justify-around items-start gap-4;
+  }
+
+  #afecciones-section
+    #inputs-description-container
+    #inputs-container
+    div
+    button {
+    @apply w-32 flex flex-col gap-y-2 items-center text-sm px-3 py-2 text-softWhite font-bold rounded-md hover:underline hover:bg-terracotta transition-colors duration-200;
+  }
+
+  #afecciones-section #inputs-description-container #inputs-container div img {
+    @apply w-16;
+  }
+
+  #afecciones-section
+    #inputs-description-container
+    #inputs-container
+    div
     select {
     @apply px-3;
     @apply py-1;
     @apply text-sm;
     @apply w-full;
-    @apply max-w-[250px];
+    @apply max-w-[300px];
   }
 
   #afecciones-section #inputs-description-container #description-container {
-    @apply w-full;
-    @apply my-4;
+    @apply w-[90%];
+    @apply mt-4;
     @apply max-w-[500px];
   }
 
@@ -72,13 +95,88 @@
   }
 
   #afecciones-section #warning-msg {
+    @apply w-[90%];
     @apply mb-4;
     @apply h-fit;
     @apply text-[16px];
   }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 768px) and (max-width: 1024px) {
+  #afecciones-section {
+    @apply w-full;
+    @apply relative;
+    @apply mt-32;
+    @apply flex;
+    @apply flex-col;
+    @apply justify-center;
+    @apply items-center;
+  }
+
+  #afecciones-section #inputs-description-container {
+    @apply w-[95%];
+    @apply items-start;
+    @apply flex-row;
+    @apply justify-center;
+  }
+
+  #afecciones-section #inputs-description-container #inputs-container div {
+    @apply w-full;
+    @apply mb-5;
+    @apply flex;
+    @apply flex-col;
+    @apply items-center;
+  }
+
+  #afecciones-section #inputs-description-container #inputs-container div h2 {
+    @apply text-md;
+    @apply mb-4;
+  }
+
+  #afecciones-section
+    #inputs-description-container
+    #inputs-container
+    div
+    #btn-group {
+    @apply w-[70%] flex flex-row flex-wrap items-center justify-center gap-x-10 gap-y-8;
+  }
+
+  #afecciones-section
+    #inputs-description-container
+    #inputs-container
+    div
+    button {
+    @apply w-max max-w-[300px] flex flex-col gap-y-2 items-center text-md px-3 py-2 text-softWhite font-bold rounded-md hover:underline hover:bg-terracotta transition-colors duration-200;
+  }
+
+  #afecciones-section #inputs-description-container #inputs-container div img {
+    @apply w-20;
+  }
+
+  #afecciones-section
+    #inputs-description-container
+    #inputs-container
+    div
+    select {
+    @apply px-3;
+    @apply py-1;
+    @apply text-base;
+    @apply w-full;
+    @apply max-w-[300px];
+  }
+
+  #afecciones-section #inputs-description-container #description-container {
+    @apply w-[75%];
+    @apply text-left;
+  }
+
+  #afecciones-section #warning-msg {
+    @apply w-3/4;
+    @apply mb-10;
+  }
+}
+
+@media (min-width: 1024px) {
   #afecciones-section {
     @apply w-full;
     @apply relative;
@@ -91,15 +189,23 @@
   }
 
   #afecciones-section #inputs-description-container {
-    @apply w-[90vw];
-    @apply max-w-[1000px];
+    @apply w-[95vw];
+    @apply gap-x-16;
+    @apply max-w-[1400px];
+  }
+
+  #afecciones-section #inputs-description-container #inputs-container {
+    @apply w-[70vw];
+    @apply border-2;
+    @apply border-red-500;
   }
 
   #afecciones-section #inputs-description-container #inputs-container div {
-    @apply w-max;
+    @apply w-full;
     @apply mb-5;
     @apply flex;
     @apply flex-col;
+    @apply items-center;
   }
 
   #afecciones-section #inputs-description-container #inputs-container div h2 {
@@ -111,12 +217,33 @@
     #inputs-description-container
     #inputs-container
     div
+    #btn-group {
+    @apply flex justify-between gap-x-8;
+  }
+
+  #afecciones-section
+    #inputs-description-container
+    #inputs-container
+    div
+    button {
+    @apply w-32 flex flex-col justify-between gap-y-2 items-center text-md px-3 py-2 text-softWhite font-bold rounded-md hover:underline hover:bg-terracotta transition-colors duration-200;
+  }
+
+  #afecciones-section #inputs-description-container #inputs-container div img {
+    @apply w-24;
+  }
+
+  #afecciones-section
+    #inputs-description-container
+    #inputs-container
+    div
     select {
+    @apply mx-auto;
     @apply px-3;
     @apply py-1;
     @apply text-base;
     @apply w-full;
-    @apply max-w-[250px];
+    @apply max-w-[300px];
   }
 
   #afecciones-section #inputs-description-container #description-container {

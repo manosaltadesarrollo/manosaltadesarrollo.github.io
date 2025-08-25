@@ -10,7 +10,7 @@ export const afecciones : Afecciones = {
     {
       causa: 2,
       descripcion:
-        "La mayoría de los dolores de hombro se deben a inflamaciones de los tendones, que mueven el hombro, los llamados tendones del manguito rotador. 'Agenda un turno para que el doctor pueda evaluar el posible tratamiento.",
+        "La mayoría de los dolores de hombro se deben a inflamaciones de los tendones, que mueven el hombro, los llamados tendones del manguito rotador. Agenda un turno para que el doctor pueda evaluar el posible tratamiento.",
     },
   ],
   codo: [

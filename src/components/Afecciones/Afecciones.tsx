@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import gsap from "gsap";
 import "./afecciones.css";
-import { buscarDescripcion } from '../../utils/buscarDescripcion';
+import { buscarDescripcion } from "../../utils/buscarDescripcion";
 import type { Causa, ParteCuerpo } from "../../types/afecciones.types";
+import { partes } from "../../constants/partes";
+import DescripcionResaltada from "../DescripcionResaltada/DescripcionResaltada";
 
 const Afecciones = () => {
   const inputsContainerRef = useRef<HTMLDivElement | null>(null);
@@ -15,9 +17,9 @@ const Afecciones = () => {
   const [isMounted, setIsMounted] = useState<boolean>(false);
   const [isDescMounted, setIsDescMounted] = useState<boolean>(false);
   const [pain, setPain] = useState<ParteCuerpo>("hombro");
+  const [selectedPain, setSelectedPain] = useState<string>("");
   const [trauma, setTrauma] = useState<Causa>(1);
   const [description, setDescription] = useState<string>("");
-
 
   // Animación inicial del primer input (siempre visible)
   useEffect(() => {
@@ -117,20 +119,15 @@ const Afecciones = () => {
 
   useEffect(() => {
     const desc = buscarDescripcion(pain, trauma);
-    if(!desc) return undefined;
+    if (!desc) return undefined;
     setDescription(desc);
-  },[pain, trauma])
+  }, [pain, trauma]);
 
-  const handleShowInput = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    if (e.target.value !== "0") {
-      const selectedValue = e.target.value as ParteCuerpo;
-      setPain(selectedValue)
-      setShowInput(true);
-    } else {
-      setPain(0);
-      setShowInput(false);
-      setShowDesc(false);
-    }
+    const handleClick = (parte: string) => {
+    const selectedValue = parte as ParteCuerpo;
+    setSelectedPain(parte);
+    setPain(selectedValue);
+    setShowInput(true);
   };
 
   const handleShowDesc = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -138,6 +135,7 @@ const Afecciones = () => {
       setTrauma(Number(e.target.value) as Causa);
       setShowDesc(true);
     } else {
+      setSelectedPain("");
       setTrauma(0);
       setShowInput(false);
       setShowDesc(false);
@@ -148,29 +146,35 @@ const Afecciones = () => {
     <section id="afecciones-section">
       <article
         id="inputs-description-container"
-        className={`flex md:h-80 ${
-          showDesc ? "md:justify-between" : "md:justify-center"
-        }`}
+        className="flex"
       >
         <div
           id="inputs-container"
           ref={inputsContainerRef}
-          className={`w-max flex flex-col items-start ${
+          className={`w-max flex flex-col ${
             showDesc ? "shifted" : ""
           }`}
         >
           <div ref={firstInputRef}>
-            <h2 className="font-medium">¿Donde sientes tu dolor?</h2>
-            <select
-              className="border-[3px] border-terracotta rounded-sm"
-              onChange={handleShowInput}
-            >
-              <option value="0">----------</option>
-              <option value="hombro">Hombro</option>
-              <option value="codo">Codo</option>
-              <option value="muñeca">Muñeca</option>
-              <option value="mano">Mano</option>
-            </select>
+            <h2 className="font-medium text-center">
+              ¿Donde sientes tu dolor?
+            </h2>
+            <span id="btn-group">
+              {partes.map((parte) => (
+                <button
+                  key={parte.id}
+                  onClick={() => handleClick(parte.id)}
+                  className={selectedPain === parte.id ? "bg-terracotta" : "bg-lilac"}
+                >
+                  <img
+                    src={parte.img}
+                    alt={parte.texto}
+                    className="object-contain"
+                  />
+                  <span className="text-sm font-medium">{parte.texto}</span>
+                </button>
+              ))}
+            </span>
           </div>
 
           {isMounted && (
@@ -180,7 +184,7 @@ const Afecciones = () => {
                 className="border-[3px] border-terracotta rounded-sm"
                 onChange={handleShowDesc}
               >
-                <option value="0">----------</option>
+                <option value="0">Seleccione una opción</option>
                 <option value="1">Golpe, accidente</option>
                 <option value="2">Dolor por esfuerzo</option>
               </select>
@@ -190,20 +194,16 @@ const Afecciones = () => {
 
         {isDescMounted && (
           <>
-          {buscarDescripcion(pain, trauma) && (
-            <div ref={descRef} id="description-container">
-            <h1 className="text-md mb-4 font-medium">Descripción</h1>
-            <p className="text-base">
-              {description}
-            </p>
-          </div>
-          )}
+            {buscarDescripcion(pain, trauma) && (
+              <div ref={descRef} className="text-base" id="description-container">
+                <DescripcionResaltada texto={description} palabras={[selectedPain, "luxación", "fractura", "inflamación"]}/>
+              </div>
+            )}
           </>
         )}
       </article>
 
       <div className="h-32 md:hidden"></div>
-
       <div className="text-center" id="warning-msg">
         <p className="font-light text-base underline">
           Aclaración: El diagnóstico puede no ser preciso, solo es a modo
