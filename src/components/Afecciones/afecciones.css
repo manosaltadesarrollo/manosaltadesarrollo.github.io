@@ -196,8 +196,7 @@
 
   #afecciones-section #inputs-description-container #inputs-container {
     @apply w-[70vw];
-    @apply border-2;
-    @apply border-red-500;
+    @apply mx-auto;
   }
 
   #afecciones-section #inputs-description-container #inputs-container div {
