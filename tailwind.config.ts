@@ -13,6 +13,9 @@ const config: Config = {
         alexandria: ["Alexandria", "sans-serif"],
         impact: ['"Anton"', "sans-serif"],
       },
+      aspectRatio: {
+        '4/3': "4 / 3",
+      },
       colors: {
         terracotta: "#8D2D17",
         darkCoral: "#DA5D31",
