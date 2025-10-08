@@ -1,0 +1,99 @@
+@tailwind base;
+@tailwind utilities;
+@tailwind components;
+
+@media (min-width: 320px) and (max-width: 768px) {
+  #publication-section {
+    @apply max-w-[95%];
+    @apply w-[95%];
+    @apply mt-32;
+    @apply mx-auto;
+    @apply flex;
+    @apply flex-col;
+    @apply items-center;
+  }
+
+  #publication-section #publication-img {
+    @apply mx-auto;
+  }
+
+  #publication-section img {
+    @apply w-[95%];
+    @apply max-w-[280px];
+    @apply mx-auto;
+  }
+
+  #publication-section #publication-description {
+    @apply w-[90%];
+  }
+
+  #publication-section #publication-description h2 {
+    @apply text-md;
+    @apply text-center;
+    @apply mt-5;
+  }
+
+  #publication-section #publication-description p {
+    @apply w-full;
+    @apply text-base;
+    @apply mb-6;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  #publication-section {
+    @apply w-[95%];
+    @apply my-36;
+    @apply grid;
+    @apply grid-cols-12;
+    @apply gap-x-5;
+    @apply mx-5;
+  }
+
+  #publication-section img {
+    @apply col-span-5;
+  }
+
+  #publication-section #publication-description {
+    @apply self-start;
+    @apply col-span-6;
+    @apply col-start-6;
+  }
+
+  #publication-section #publication-description h2 {
+    @apply text-lg;
+    @apply text-left;
+  }
+
+  #publication-section #publication-description p {
+    @apply text-base;
+  }
+}
+
+@media (min-width: 1024px) {
+  #publication-section {
+    @apply w-full;
+    @apply my-40;
+    @apply grid;
+    @apply grid-cols-12;
+    @apply justify-center;
+  }
+
+  #publication-section img {
+    @apply col-span-4;
+    @apply col-start-2;
+  }
+
+  #publication-section #publication-description {
+    @apply col-span-5;
+    @apply col-start-7;
+  }
+
+  #publication-section #publication-description h2 {
+    @apply text-lg;
+  }
+
+  #publication-section #publication-description p {
+    @apply text-base;
+  }
+}

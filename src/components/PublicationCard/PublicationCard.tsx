@@ -12,7 +12,7 @@ const PublicationCard = ({publication} : PublicationCardParams) => {
 
   return (
     <a
-    href={`/publication/${publication._id}`}
+    href={`/publication/${publication._originalId}`}
       id="info-container"
       className="shadow-[8px_8px_10px_0px_rgba(0,0,0,0.5)] bg-lightLilac rounded-md transition-all duration-300 ease-in-out hover:bg-darkCoral"
     >
