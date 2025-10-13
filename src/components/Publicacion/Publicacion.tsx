@@ -5,14 +5,69 @@ import type { Publication } from "../../types/publication.types";
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { readableDate } from "../../utils/dateFormatter";
 import GoBackBtn from "../GoBackBtn/GoBackBtn";
+import { PortableText, type PortableTextComponents } from "@portabletext/react";
 
 import "./publicacion.css";
+import { FiExternalLink } from "react-icons/fi";
 
 const Publicacion = () => {
   const [publication, setPublication] = useState<Publication | undefined>(
     undefined
   );
   const [loading, setLoading] = useState<boolean>(true);
+
+
+  // Esto es para darle al componente de PortableText que va a recibir de texto
+  const components: PortableTextComponents = { 
+    marks: {
+      strong: ({ children }) => (
+        <strong className="font-bold">{children}</strong>
+      ),
+      underline: ({ children }) => <u className="underline">{children}</u>,
+      strikeThrough: ({ children }) => <s>{children}</s>,
+      link: ({ value, children }) => {
+        let href = value?.href || "";
+        const target = value?.blank ? "_blank" : "_self";
+        const rel = target === "_blank" ? "noopener noreferrer" : undefined;
+        const isExternal = target === "_blank";
+
+        //  Si no tiene http ó https, lo agrego
+        if (href && !/^https?:\/\//i.test(href)) {
+          href = `https://${href}`;
+        }
+        return (
+          <a
+            href={href}
+            target={target}
+            rel={rel}
+            className="text-blue-600 hover:underline"
+          >
+            {children}
+            {isExternal && <FiExternalLink size={14} />}
+          </a>
+        );
+      },
+    },
+    list: {
+      bullet: ({ children }) => <ul className="list-disc ml-6">{children}</ul>,
+      number: ({ children }) => (
+        <ol className="list-decimal ml-6">{children}</ol>
+      ),
+    },
+    block: {
+      h1: ({ children }) => (
+        <h1 className="text-3xl font-bold my-4">{children}</h1>
+      ),
+      h2: ({ children }) => (
+        <h2 className="text-2xl font-semibold my-3">{children}</h2>
+      ),
+      normal: ({ children }) => (
+        <p className="font-light text-wrap break-words whitespace-normal">
+          {children}
+        </p>
+      ),
+    },
+  };
 
   const { id } = useParams();
   useEffect(() => {
@@ -53,12 +108,13 @@ const Publicacion = () => {
           />
           <article id="publication-description">
             <h2 className="font-semibold mb-2">{publication?.titulo}</h2>
-            <h4 className="text-base underline font-light my-2">
+            <h4 className="text-base underline font-light my-2 mb-4">
               Publicado el {readableDate(publication?.fecha)}
             </h4>
-            <p className="font-light text-wrap break-words whitespace-normal">
-              {publication.descripcionBreve}
-            </p>
+            <PortableText
+              value={publication.descripcionCompleta}
+              components={components}
+            />
           </article>
           <GoBackBtn />
         </>

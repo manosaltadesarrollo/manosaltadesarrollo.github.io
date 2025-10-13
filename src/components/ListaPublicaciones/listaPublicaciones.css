@@ -19,7 +19,6 @@
         @apply grid;
         @apply grid-cols-12;
         @apply gap-y-6;
-        @apply justify-items-center;
     }
 }
 
@@ -31,5 +30,6 @@
         @apply grid-cols-12;
         @apply gap-x-6;
         @apply gap-y-6;
+        @apply justify-items-center;
     }
 }

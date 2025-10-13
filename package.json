@@ -11,6 +11,7 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "@portabletext/react": "^4.0.3",
     "@tailwindcss/vite": "^4.1.11",
     "gsap": "^3.13.0",
     "react": "^19.1.0",
