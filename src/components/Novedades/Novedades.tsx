@@ -5,11 +5,10 @@ import ListaPublicaciones from "../ListaPublicaciones/ListaPublicaciones";
 import "./novedades.css";
 import { getAllPublications } from "../../services/publications.service";
 import type { Publication } from "../../types/publication.types";
-import { FaTriangleExclamation } from "react-icons/fa6";
 
 const Novedades = () => {
   const [activeTab, setActiveTab] = useState<number>(0);
-  const [publications, setPublications] = useState<Publication[] | undefined>(undefined);
+  const [publications, setPublications] = useState<Publication[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
   useEffect(() => {
@@ -34,21 +33,15 @@ const Novedades = () => {
         </h2>
       </span>
       <article className="py-8">
-        {(loading) && (
+        {loading && (
           <span className="flex flex-col justify-center items-center">
-            <div className="w-12 h-12 border-4 border-darkCoral border-t-transparent rounded-full animate-spin"></div>
+              <div className="w-12 h-12 border-4 border-darkCoral border-t-transparent rounded-full animate-spin"></div>
             <p className="text-sm mt-2">Cargando publicaciones</p>
           </span>
         )}
-        {(!loading && publications && publications.length <= 0) && <span className="my-12 mx-auto w-[70vw] flex flex-col justify-center items-center">
-            <FaTriangleExclamation className="text-[100px] text-tangerine" />
-            <p className="text-md mt-2 text-center">
-              No hay ninguna novedad.
-            </p>
-          </span>}
-        {(!loading && publications && publications.length > 0) && (
+        {!loading && publications.length > 0 && (
           <>
-            <span id="publication-switch" className="mx-auto rounded-full bg-[#69489680] flex justify-between w-[250px] border-[2px] border-lilac">
+            <span className="mx-auto rounded-full bg-[#69489680] flex justify-between w-[250px] border-[2px] border-lilac">
               <p
                 onClick={toggleTab}
                 className={`w-1/2 px-4 py-2 rounded-full text-center text-base text-softWhite ${
@@ -80,18 +73,20 @@ const Novedades = () => {
             </div>
           </>
         )}
-        {(!loading && !publications) && (
-          <span className="my-12 mx-auto w-[70vw] flex flex-col justify-center items-center">
-            <FaTriangleExclamation className="text-[100px] text-tangerine" />
-            <p className="text-md mt-2 text-center">
-              No se ha se han encontrado publicaciones
-            </p>
-          </span>
-        )}
       </article>
-        
     </section>
   );
 };
 
 export default Novedades;
+
+/* 
+    
+
+*/
+
+/* 
+
+
+
+*/
