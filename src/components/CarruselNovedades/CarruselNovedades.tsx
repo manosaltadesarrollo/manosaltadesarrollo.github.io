@@ -51,7 +51,7 @@ const NovedadesCarrusel = ({ publications }: CarruselNovedadesParams) => {
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 768) setCardsToShow(2); // móviles
-      else setCardsToShow(2); // tablets y PCs
+      else setCardsToShow(3); // tablets y PCs
     };
     handleResize();
     window.addEventListener("resize", handleResize);
