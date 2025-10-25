@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind utilities;
+@tailwind components;
+
+@media (min-width:320px) and (max-width:768px) {
+    #carrusel-tablet-pc {
+        @apply hidden;
+    }
+}
+
+@media (min-width:768px) {
+    #carrusel-mobile {
+        @apply hidden;
+    }
+}
+
+@media (min-width:1024px) {
+    #carrusel-tablet-pc {
+        @apply w-[95%];
+        @apply mx-auto;
+        @apply items-center;
+    }
+
+    #carrusel-tabet-pc #cards-container {
+        @apply justify-center;
+    }
+}

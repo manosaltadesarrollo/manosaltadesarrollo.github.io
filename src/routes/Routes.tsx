@@ -15,6 +15,7 @@ import ScrollToTop from "../components/ScrollToTop/ScrollToTop";
 import NotAvailable from "../components/NotAvailable/NotAvailable";
 import { useEffect } from "react";
 import Afecciones from "../components/Afecciones/Afecciones";
+import Publicacion from "../components/Publicacion/Publicacion";
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -41,6 +42,7 @@ const AppRoutes = () => {
           <Route path="/sobre-mi" element={<About />} />
           <Route path="/afecciones" element={<Afecciones />} />
           <Route path="/grupo-mano" element={<NotAvailable />} />
+          <Route path="/publication/:id" element={<Publicacion />}/>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

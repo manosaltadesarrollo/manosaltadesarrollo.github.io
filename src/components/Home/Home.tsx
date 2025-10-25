@@ -5,6 +5,7 @@ import Contact from "../Contact/Contact";
 import "./home.css";
 import Turnero from "../Turnero/Turnero";
 import gsap from "gsap";
+import Novedades from "../Novedades/Novedades";
 
 const Home = () => {
   const [show, setShow] = useState<boolean>(false);
@@ -101,6 +102,7 @@ const Home = () => {
           />
         </div>
       </article>
+      <Novedades />
       <Contact />
     </section>
   );

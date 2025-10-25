@@ -1,0 +1,38 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (min-width:320px) and (max-width:768px) {
+  #info-container {
+    @apply mx-auto;
+    @apply w-[280px];
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+  #info-container {
+    @apply flex;
+    @apply flex-col;
+    @apply items-center;
+    @apply rounded-md;
+    @apply hover:scale-105;
+    @apply hover:cursor-pointer;
+    @apply col-span-6;
+    @apply max-w-[250px];
+  }
+}
+
+@media (min-width: 1024px) {
+  #info-container {
+    @apply flex;
+    @apply flex-col;
+    @apply items-center;
+    @apply rounded-md;
+    @apply col-span-4;
+    @apply w-full;
+    @apply max-w-[280px];
+    @apply h-[368px];
+    @apply hover:scale-105;
+    @apply hover:cursor-pointer;
+  }
+}

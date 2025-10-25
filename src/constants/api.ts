@@ -1,0 +1,1 @@
+export const API_URL = 'https://jfc2w9qp.api.sanity.io/v2025-10-08/data'
