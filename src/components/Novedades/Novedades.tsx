@@ -41,7 +41,6 @@ const Novedades = () => {
           </span>
         )}
         {(!loading && publications && publications.length <= 0) && <span className="my-12 mx-auto w-[70vw] flex flex-col justify-center items-center">
-            <FaTriangleExclamation className="text-[100px] text-tangerine" />
             <p className="text-md mt-2 text-center">
               No hay ninguna novedad.
             </p>
@@ -84,7 +83,7 @@ const Novedades = () => {
           <span className="my-12 mx-auto w-[70vw] flex flex-col justify-center items-center">
             <FaTriangleExclamation className="text-[100px] text-tangerine" />
             <p className="text-md mt-2 text-center">
-              No se ha se han encontrado publicaciones
+              Ocurrio un error al cargar las publicaciones.
             </p>
           </span>
         )}
