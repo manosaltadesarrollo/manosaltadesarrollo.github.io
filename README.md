@@ -45,6 +45,9 @@ El sitio se desplegará mediante:
 
 GitHub Pages (configurar homepage + gh-pages)
 
+DEPLOY:
+Para realizar los deploy de backend en VSC en SCRIPS NPM se aprieta PRIMERO Build y luego "deploy" > en consola, Select el proyecto >> Enter >> Upgrade and continue
+
 ✍️ Colaboración
 
 Las tareas están organizadas como issues bajo el proyecto GitHub.
