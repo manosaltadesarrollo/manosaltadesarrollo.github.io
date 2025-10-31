@@ -25,7 +25,7 @@ const PublicationCard = ({publication} : PublicationCardParams) => {
       </picture>
       <span id="title-container" className="w-full p-2 flex flex-col gap-y-2">
         <p className="text-base text-black truncate text-ellipsis overflow-y-hidden h-28 text-wrap">
-          {publication.descripcionBreve}
+          {publication.titulo}
         </p>
         <p className="w-full self-end italic font-light text-[14px]">Publicado el {fecha}</p>
       </span>
