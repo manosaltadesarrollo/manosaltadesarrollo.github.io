@@ -49,9 +49,9 @@ const Publicacion = () => {
       },
     },
     list: {
-      bullet: ({ children }) => <ul className="list-disc ml-6">{children}</ul>,
+      bullet: ({ children }) => <><ul className="list-disc ml-6 font-light text-base">{children}</ul><br></br></>,
       number: ({ children }) => (
-        <ol className="list-decimal ml-6">{children}</ol>
+        <><ol className="list-decimal ml-6 font-light text-base">{children}</ol><br></br></>
       ),
     },
     block: {
