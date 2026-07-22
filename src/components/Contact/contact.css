@@ -18,7 +18,7 @@
     #contact-section #contact-details img {
         @apply w-full;
         @apply max-w-[300px];
-        @apply h-80;
+        @apply h-64;
     }
 
     #contact-section #contact-details #contact-info {
@@ -49,9 +49,8 @@
 
     #contact-section #contact-details img {
         @apply w-full;
-        @apply mt-12;
-        @apply max-w-[300px];
-        @apply h-80;
+        @apply max-w-[350px];
+        @apply h-64;
     }
 
     #contact-section #contact-details #contact-info {

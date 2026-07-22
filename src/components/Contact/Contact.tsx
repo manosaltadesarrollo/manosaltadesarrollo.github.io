@@ -51,14 +51,14 @@ const Contact = () => {
         className="mx-auto flex items-center justify-around mt-5"
       >
         <img
-          src="/images/esquina-imac.webp"
+          src="/images/consult-img.webp"
           className="w-1/2 rounded-md"
-          alt="esquina-imac"
+          alt="hospital-privado-salta"
         />
         <div id="contact-info">
           <h2 className="text-md font-bold">Ubicación y contacto</h2>
           <span className="flex">
-            <a target="_blank" href="https://maps.app.goo.gl/djzEDJKsqvNDggEg8">
+            <a target="_blank" href="https://maps.app.goo.gl/jU6s7WH1AvRXbk4H8">
               <FaMapMarkerAlt />
             </a>
             <ul>
@@ -66,18 +66,18 @@ const Contact = () => {
                 <a
                 className="hover:text-darkCoral"
                   target="_blank"
-                  href="https://maps.app.goo.gl/djzEDJKsqvNDggEg8"
+                  href="https://maps.app.goo.gl/jU6s7WH1AvRXbk4H8"
                 >
-                  Consultorio IMAC
+                  Hospital Privado Salta
                 </a>
               </li>
               <li className="font-light">
                 <a
                   target="_blank"
-                  href="https://maps.app.goo.gl/djzEDJKsqvNDggEg8"
+                  href="https://maps.app.goo.gl/jU6s7WH1AvRXbk4H8"
                   className="hover:underline"
                 >
-                  (Adolfo Güemes - esq. España)
+                  (Caseros 967)
                 </a>
               </li>
             </ul>
