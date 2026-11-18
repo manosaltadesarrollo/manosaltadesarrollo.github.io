@@ -56,7 +56,40 @@
     🩺 Ateneos M.A.No
   </a>
 </div>
-
+<script>
+(function(){
+  var G='linear-gradient(135deg,#6A4996,#DA5E2E)';
+  function card(href,ico,tit,txt,ext){
+    return '<a href="'+href+'"'+(ext?' target="_blank" rel="noopener"':'')+' style="flex:1 1 260px;display:block;text-decoration:none;color:#2b1d45;background:#fff;border-radius:18px;padding:22px;box-shadow:0 8px 24px rgba(106,73,150,.15);border:1px solid #e6dcf5">'
+     +'<div style="width:48px;height:48px;border-radius:14px;background:'+G+';display:grid;place-items:center;font-size:24px;margin-bottom:12px">'+ico+'</div>'
+     +'<div style="font-weight:800;font-size:19px">'+tit+'</div>'
+     +'<div style="margin-top:6px;font-size:14.5px;line-height:1.45;color:#5c5470">'+txt+'</div>'
+     +'<div style="margin-top:14px;font-weight:700;color:#6A4996">Ingresar →</div></a>';
+  }
+  function aplicar(){
+    if(!/grupo|mano/i.test(location.pathname+location.hash)) return;
+    var els=document.querySelectorAll('#root p,#root h1,#root h2,#root h3,#root span,#root div');
+    for(var i=0;i<els.length;i++){
+      var e=els[i];
+      if(e.children.length===0 && /en construcci[oó]n/i.test(e.textContent)){
+        var box=e.parentElement; if(!box||box.dataset.mano) return;
+        box.dataset.mano='1';
+        box.style.background='transparent';
+        box.innerHTML='<div style="text-align:center;margin-bottom:22px"><div style="font-size:28px;font-weight:800;color:#4A1F8A">Grupo M.A.No</div>'
+         +'<div style="color:#5c5470;margin-top:6px">Espacio del equipo de cirugía de la mano</div></div>'
+         +'<div style="display:flex;flex-wrap:wrap;gap:16px">'
+         +card('https://ateneos.cirugiademanosalta.com','🩺','Ateneos','Casos, bibliografía e inscripción a los ateneos del grupo.',true)
+         +card('/registro/','📊','Registro Quirúrgico','Seguimiento de cirugías y estadística. 🔒 Acceso solo para el equipo.',false)
+         +'</div>';
+        return;
+      }
+    }
+  }
+  new MutationObserver(aplicar).observe(document.body,{childList:true,subtree:true});
+  window.addEventListener('popstate',aplicar);
+  aplicar();
+})();
+</script>
 
   </body>
 </html>
