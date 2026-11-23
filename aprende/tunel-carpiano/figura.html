@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Túnel carpiano · explicado para pacientes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#EFEBE3; --card:#FBFAF7; --ink:#201E1A; --mute:#6E685D; --line:#DDD6C8;
+    --accent:#2F5D73; --chip:#F1ECE2;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:760px;margin:0 auto;padding:18px 14px 40px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;box-shadow:0 1px 0 rgba(0,0,0,.03),0 12px 30px -18px rgba(40,30,10,.25);overflow:hidden}
+  header{padding:18px 18px 4px}
+  .eyebrow{font:600 11px/1 Inter;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+  h1{font-size:22px;line-height:1.2;margin:8px 0 4px;font-weight:700;letter-spacing:-.01em}
+  .sub{color:var(--mute);font-size:14px;line-height:1.45;margin:0}
+  figure{margin:6px 0 0;padding:0 6px}
+  svg{display:block;width:100%;height:auto}
+  .cap{font-size:11.5px;color:var(--mute);text-align:center;margin:2px 0 8px;letter-spacing:.02em}
+  .legend{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;padding:4px 18px 14px;font-size:13px}
+  .legend div{display:flex;align-items:center;gap:8px}
+  .b{flex:none;width:20px;height:20px;border-radius:50%;background:var(--ink);color:#fff;font:700 11px/20px Inter;text-align:center}
+  .panel{border-top:1px solid var(--line);padding:16px 18px 18px}
+  .readout{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  .val{font:700 44px/1 "JetBrains Mono",ui-monospace,monospace;letter-spacing:-.03em}
+  .val small{font:500 15px Inter;color:var(--mute);margin-left:4px;letter-spacing:0}
+  .lbl{font-size:12px;color:var(--mute);margin-bottom:6px;text-transform:uppercase;letter-spacing:.1em;font-weight:600}
+  .status{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;font-size:13px;font-weight:600;background:var(--chip);max-width:100%}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .scale{position:relative;margin:16px 0 4px;height:12px;border-radius:6px;overflow:hidden;display:flex}
+  .scale span{height:100%}
+  .marker{position:absolute;top:-5px;width:3px;height:22px;background:var(--ink);border-radius:2px;transform:translateX(-50%);box-shadow:0 0 0 2px var(--card)}
+  .scalewrap{position:relative}
+  .ticks{display:flex;justify-content:space-between;font:500 10.5px "JetBrains Mono",monospace;color:var(--mute);position:relative;height:14px}
+  .ticks i{position:absolute;font-style:normal;transform:translateX(-50%)}
+  .ctl{margin-top:18px}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--chip);border-radius:12px;padding:4px;gap:4px}
+  .seg button{appearance:none;border:0;background:transparent;padding:10px 4px;border-radius:9px;font:600 14px Inter;color:var(--mute);cursor:pointer}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+  .row b{font:700 14px "JetBrains Mono",monospace}
+  input[type=range]{width:100%;accent-color:var(--accent);height:28px}
+  .ends{display:flex;justify-content:space-between;font-size:11.5px;color:var(--mute);margin-top:-2px}
+  .note{margin-top:14px;font-size:13px;color:var(--mute);line-height:1.45;min-height:19px}
+  .zones{margin-top:16px;border-top:1px dashed var(--line);padding-top:12px}
+  .z{display:flex;gap:10px;align-items:center;padding:6px 8px;border-radius:9px;font-size:13px;transition:background .3s}
+  .z .r{font:600 12px "JetBrains Mono",monospace;width:62px;flex:none;color:var(--mute)}
+  .z.on{background:var(--chip);font-weight:600}
+  .z.on .r{color:var(--ink)}
+  .refs{padding:14px 18px 18px;border-top:1px solid var(--line);font-size:11.5px;color:var(--mute);line-height:1.5}
+  .refs p{margin:0 0 6px}
+
+  .light{display:flex;gap:14px;align-items:center;border:2px solid var(--line);border-radius:16px;padding:14px;transition:border-color .4s}
+  .lamps{display:flex;flex-direction:column;gap:6px;background:#2a2824;padding:7px;border-radius:12px;flex:none}
+  .lamp{width:22px;height:22px;border-radius:50%;opacity:.22;transition:opacity .4s,box-shadow .4s}
+  .lamp.on{opacity:1;box-shadow:0 0 12px currentColor}
+  .light h2{margin:0 0 4px;font-size:19px}
+  .light p{margin:0;font-size:14.5px;line-height:1.4;color:var(--mute)}
+  .note{font-size:15px;color:var(--ink);background:var(--chip);border-radius:12px;padding:12px 14px;margin-top:16px;line-height:1.45}
+  .big{display:block;width:100%;margin-top:16px;padding:14px;border-radius:14px;border:2px solid var(--accent);background:#fff;color:var(--accent);font:700 16px Inter;cursor:pointer}
+  .big.on{background:var(--accent);color:#fff}
+  .faq{padding:6px 18px 20px;border-top:1px solid var(--line)}
+  .faq h3{font-size:16px;margin:16px 0 4px}
+  .faq p{margin:0;font-size:14.5px;line-height:1.5;color:#45413a}
+  /* dentro de la página del sitio: sin fondo propio ni margen exterior */
+  html,body{background:transparent}
+  .wrap{padding:0}
+</style></head>
+<body>
+<div class="wrap">
+ <div class="card">
+  <header>
+   <div class="eyebrow">Síndrome del túnel carpiano</div>
+   <h1>¿Qué le pasa al nervio de mi muñeca?</h1>
+   <p class="sub">En la muñeca hay un túnel por donde pasan un nervio y los tendones que doblan los dedos. Mové los controles para ver qué lo aprieta.</p>
+  </header>
+  <figure><svg id="fig" viewBox="-214 -262 522 338" role="img" aria-label="Dibujo del túnel carpiano"></svg></figure>
+  <div class="legend">
+   <div><span class="b">1</span>Ligamento: el «techo» del túnel</div>
+   <div><span class="b" style="background:#8A6A12">2</span>Nervio mediano</div>
+   <div><span class="b">3</span>Tendones que doblan los dedos</div>
+   <div><span class="b">4</span>Huesos de la muñeca</div>
+  </div>
+  <div class="panel">
+   <div class="light" id="st">
+    <div class="lamps"><div class="lamp" style="background:#C2413A;color:#C2413A"></div><div class="lamp" style="background:#D9A21F;color:#D9A21F"></div><div class="lamp" style="background:#3E8E6A;color:#3E8E6A"></div></div>
+    <div><h2 id="stt"></h2><p id="std"></p></div>
+   </div>
+   <div class="ctl">
+    <div class="lbl">La muñeca está…</div>
+    <div class="seg" id="seg">
+     <button data-p="flex">Doblada</button>
+     <button data-p="neu" class="on">Derecha</button>
+     <button data-p="ext">Hacia atrás</button>
+    </div>
+   </div>
+   <div class="ctl">
+    <div class="lbl">Inflamación de los tendones</div>
+    <input id="sl" type="range" min="0" max="100" value="0" aria-label="Inflamación">
+    <div class="ends"><span>Sin inflamación</span><span>Mucha inflamación</span></div>
+   </div>
+   <div class="note" id="note"></div>
+   <button class="big" id="surg"></button>
+  </div>
+  <div class="faq">
+   <h3>¿Por qué molesta más de noche?</h3>
+   <p>Al dormir solemos doblar la muñeca sin darnos cuenta. Eso achica el túnel durante horas y el nervio se queja: hormigueo y mano dormida al despertar.</p>
+   <h3>¿Para qué sirve la férula?</h3>
+   <p>Mantiene la muñeca derecha mientras dormís, que es la posición donde el nervio tiene más lugar.</p>
+   <h3>¿Qué hace la cirugía?</h3>
+   <p>Se corta el ligamento que hace de techo del túnel. Así el túnel se agranda y el nervio deja de estar apretado. No se toca el nervio ni los tendones.</p>
+  </div>
+ </div>
+</div>
+<script>
+(function(){
+const SC=12, L=20, RX=0.42, RY=0.28;
+const pr=(x,y,z)=>[(x+y*RX)*SC, (-z-y*RY)*SC];
+const pt=p=>p[0].toFixed(1)+','+p[1].toFixed(1);
+const nrm=v=>{const m=Math.hypot(...v);return v.map(c=>c/m)};
+const LD=nrm([-0.35,-0.55,0.8]);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rgb=(c,k=1)=>`rgb(${c.map(v=>Math.round(clamp(v*k,0,255))).join(',')})`;
+const mix=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t);
+
+const PRES={normal:{flex:31,neu:2.5,ext:30},cts:{flex:94,neu:32,ext:110}};
+const ZONES=[
+ {hi:20,label:'Nervio cómodo',desc:'Hay lugar suficiente. El nervio funciona bien.',c:'#3E8E6A'},
+ {hi:40,label:'Nervio apretado',desc:'Puede aparecer hormigueo o la mano dormida, sobre todo de noche.',c:'#D9A21F'},
+ {hi:999,label:'Nervio muy apretado',desc:'Hormigueo frecuente, adormecimiento y, con el tiempo, pérdida de fuerza en el pulgar.',c:'#C2413A'}
+];
+const MAXP=120;
+
+// --- geometry (mm-ish, x radial(-)→cubital(+), z dorsal(-)→palmar(+)) ---
+const BONE=(()=>{const p=[];for(let x=-13;x<=13;x+=1)p.push([x,0.06*x*x]);
+  p.push([13,12.3],[16,12.3]);for(let x=16;x>=-16;x-=1)p.push([x,0.05*x*x-3.2]);
+  p.push([-16,12.3],[-13,12.3]);return p})();
+const TEND=[
+ {t:'FDP',x:-4.5,z:2.9,r:1.5},{t:'FDP',x:-1.5,z:2.9,r:1.5},{t:'FDP',x:1.5,z:2.9,r:1.5},{t:'FDP',x:4.5,z:2.9,r:1.5},
+ {t:'FDS',x:-6,z:5.8,r:1.45},{t:'FDS',x:6,z:5.8,r:1.4},{t:'FDS',x:-2,z:7.4,r:1.5},{t:'FDS',x:2,z:7.4,r:1.5},
+ {t:'FPL',x:-9.2,z:7.2,r:1.85}
+];
+const BONE_C=[233,222,198], TEN_C=[246,243,236], LIG_C=[120,160,184];
+const NERVE_A=[236,196,64], NERVE_B=[206,84,74];
+
+function area(p){let a=0;for(let i=0;i<p.length;i++){const q=p[(i+1)%p.length];a+=p[i][0]*q[1]-q[0]*p[i][1]}return a/2}
+function sides(poly,col,op){
+  const out=[],ccw=area(poly)>0;
+  for(let i=0;i<poly.length;i++){
+    const a=poly[i],b=poly[(i+1)%poly.length];
+    const dx=b[0]-a[0],dz=b[1]-a[1];let n=ccw?[dz,-dx]:[-dz,dx];
+    const m=Math.hypot(n[0],n[1]);if(!m)continue;n=[n[0]/m,n[1]/m];
+    if(n[0]+n[1]<=0.001)continue;
+    const lam=Math.max(0,n[0]*LD[0]+n[1]*LD[2]);const k=0.6+0.5*lam;
+    const P=[pr(a[0],0,a[1]),pr(b[0],0,b[1]),pr(b[0],L,b[1]),pr(a[0],L,a[1])];
+    const f=rgb(col,k);
+    out.push({d:(a[0]+b[0])/2+(a[1]+b[1])/2,s:`<polygon points="${P.map(pt).join(' ')}" fill="${f}" stroke="${f}" stroke-width=".7" stroke-linejoin="round"${op?` fill-opacity="${op}" stroke-opacity="${op}"`:''}/>`});
+  }
+  return out;
+}
+function cap(poly,col,k,extra=''){return `<polygon points="${poly.map(q=>pt(pr(q[0],0,q[1]))).join(' ')}" fill="${rgb(col,k)}" ${extra}/>`}
+function hull(P){P=P.slice().sort((a,b)=>a[0]-b[0]||a[1]-b[1]);const cr=(o,a,b)=>(a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]);
+  const lo=[],up=[];for(const p of P){while(lo.length>1&&cr(lo[lo.length-2],lo[lo.length-1],p)<=0)lo.pop();lo.push(p)}
+  for(let i=P.length-1;i>=0;i--){const p=P[i];while(up.length>1&&cr(up[up.length-2],up[up.length-1],p)<=0)up.pop();up.push(p)}
+  up.pop();lo.pop();return lo.concat(up)}
+const PERP=nrm([RY,RX]); // screen perpendicular to tube axis
+function grad(id,c,r,stops){const x1=c[0]-PERP[0]*r,y1=c[1]-PERP[1]*r,x2=c[0]+PERP[0]*r,y2=c[1]+PERP[1]*r;
+  return `<linearGradient id="${id}" gradientUnits="userSpaceOnUse" x1="${x1.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y2.toFixed(1)}">${stops.map(s=>`<stop offset="${s[0]}" stop-color="${s[1]}"/>`).join('')}</linearGradient>`}
+function badge(x,z,n,fill='#201E1A'){const p=pr(x,0,z);return `<g><circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="10.5" fill="${fill}" stroke="#fff" stroke-width="2"/><text x="${p[0].toFixed(1)}" y="${(p[1]+4.3).toFixed(1)}" text-anchor="middle" font-family="Inter" font-weight="700" font-size="12.5" fill="#fff">${n}</text></g>`}
+
+function render(P,s,cut){
+  const k=clamp((P-2.5)/(110-2.5),0,1);
+  const B=1.15*k;
+  const g=2.2*cut;
+  const ligB=x=>12.3+B*Math.max(0,1-(x/14)**2);
+  const half=(a,b)=>{const p=[],xs=[];for(let x=a;x<b;x+=1)xs.push(x);xs.push(b);xs.forEach(x=>p.push([x,ligB(x)]));xs.slice().reverse().forEach(x=>p.push([x,ligB(x)+1.55]));return p};
+  const LIGS=cut>0.02?[half(-16,-g),half(g,16)]:[half(-16,16)];
+
+  let defs='',items=[];
+  items=items.concat(sides(BONE,BONE_C));
+  // tendons
+  TEND.forEach((t,i)=>{
+    const r=t.r*(1+0.24*s), rh=t.r*(1+0.55*s)+0.12;
+    const a=pr(t.x,0,t.z),b=pr(t.x,L,t.z),c=[(a[0]+b[0])/2,(a[1]+b[1])/2];
+    defs+=grad('g'+i,c,r*SC,[[0,'#FFFFFF'],[0.42,rgb(TEN_C)],[1,rgb(TEN_C,0.72)]]);
+    const ha=(0.12+0.5*s).toFixed(2);
+    items.push({d:t.x+t.z+1.2,s:
+      (s>0.02?`<line x1="${pt(a).split(',')[0]}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="rgba(214,110,128,${ha})" stroke-width="${(2*rh*SC).toFixed(1)}" stroke-linecap="round"/>`:'')+
+      `<line x1="${a[0].toFixed(1)}" y1="${a[1].toFixed(1)}" x2="${b[0].toFixed(1)}" y2="${b[1].toFixed(1)}" stroke="url(#g${i})" stroke-width="${(2*r*SC).toFixed(1)}" stroke-linecap="round"/>`});
+    t._r=r;t._rh=rh;
+  });
+  // nerve
+  const nrx=2.5*(1+0.3*k), nrz=1.35*(1-0.52*k), ncx=-3.3, ncz=ligB(-3.3)-nrz-0.12;
+  const ncol=mix(NERVE_A,NERVE_B,Math.pow(k,0.85));
+  const ell=[];for(let i=0;i<36;i++){const a=i/36*Math.PI*2;ell.push([ncx+nrx*Math.cos(a),ncz+nrz*Math.sin(a)])}
+  const hp=hull(ell.map(q=>pr(q[0],0,q[1])).concat(ell.map(q=>pr(q[0],L,q[1]))));
+  const nc=[(pr(ncx,0,ncz)[0]+pr(ncx,L,ncz)[0])/2,(pr(ncx,0,ncz)[1]+pr(ncx,L,ncz)[1])/2];
+  defs+=grad('gn',nc,nrx*SC*0.9,[[0,rgb(ncol,1.25)],[0.45,rgb(ncol)],[1,rgb(ncol,0.7)]]);
+  items.push({d:ncx+ncz+1.5,s:`<polygon points="${hp.map(pt).join(' ')}" fill="url(#gn)"/>`});
+  items.sort((a,b)=>a.d-b.d);
+
+  let out=`<defs>${defs}<filter id="sh" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="6" stdDeviation="7" flood-color="#4a3a1a" flood-opacity=".18"/></filter></defs>`;
+  out+=`<g filter="url(#sh)">`+items.map(i=>i.s).join('');
+  // front caps
+  out+=cap(BONE,BONE_C,1.06,'stroke="#C9BB98" stroke-width="1"');
+  // trabecular hint
+  for(let x=-14;x<=14;x+=2.4){for(let j=0;j<2;j++){const z=0.055*x*x-1.1-j*1.1+((x*7)%1.3)*0.3; if(z<0.05*x*x-2.6)continue;const p=pr(x+j*1.1,0,z);out+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.3" fill="#D8CBAA" opacity=".55"/>`}}
+  TEND.forEach(t=>{const p=pr(t.x,0,t.z);
+    if(s>0.02)out+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${(t._rh*SC).toFixed(1)}" fill="rgba(222,120,138,${(0.18+0.5*s).toFixed(2)})" stroke="rgba(190,80,100,${(0.3+0.4*s).toFixed(2)})" stroke-width="1"/>`;
+    out+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="${(t._r*SC).toFixed(1)}" fill="#FFFDF8" stroke="#BDB5A3" stroke-width="1.1"/>`;
+    out+=`<circle cx="${(p[0]-t._r*SC*.3).toFixed(1)}" cy="${(p[1]-t._r*SC*.3).toFixed(1)}" r="${(t._r*SC*.28).toFixed(1)}" fill="#fff" opacity=".9"/>`;
+  });
+  out+=`<polygon points="${ell.map(q=>pt(pr(q[0],0,q[1]))).join(' ')}" fill="${rgb(ncol,1.08)}" stroke="${rgb(ncol,0.62)}" stroke-width="1.3"/>`;
+  [[-.55,.15],[0,.35],[.5,.1],[-.2,-.35],[.3,-.4],[-.75,-.2],[.78,-.12]].forEach(f=>{const p=pr(ncx+f[0]*nrx,0,ncz+f[1]*nrz*1.4);
+    out+=`<ellipse cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" rx="${(nrx*SC*.13).toFixed(1)}" ry="${Math.max(1.2,nrz*SC*.22).toFixed(1)}" fill="${rgb(ncol,0.82)}" opacity=".8"/>`});
+  // ligament (translucent) on top
+  LIGS.forEach(LG=>{out+=sides(LG,LIG_C,0.5).sort((a,b)=>a.d-b.d).map(i=>i.s).join('');out+=cap(LG,LIG_C,1.0,'fill-opacity=".88" stroke="#5E8197" stroke-width="1"');});
+  // ligament fiber lines
+  for(let i=1;i<3;i++){const pts=[];for(let x=-15.5;x<=15.5;x+=1){if(cut>0.02&&Math.abs(x)<g+0.2){if(pts.length){out+=`<polyline points="${pts.map(pt).join(' ')}" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1"/>`;pts.length=0}continue}pts.push(pr(x,0,ligB(x)+i*0.52))}out+=`<polyline points="${pts.map(pt).join(' ')}" fill="none" stroke="#fff" stroke-opacity=".35" stroke-width="1"/>`}
+  out+=`</g>`;
+  // badges
+  out+=badge(-10.5,ligB(-10.5)+0.78,1);
+  out+=badge(ncx,ncz,2,'#8A6A12');
+  out+=badge(2,7.4,3)+badge(0,-1.7,4);
+  // orientation
+  const l=pr(-15.6,0,-5.2),r=pr(15.6,0,-5.2),tp=pr(-15.6,0,16.3);
+  out+=`<text x="${l[0]}" y="${l[1]}" font-family="Inter" font-size="12" font-weight="600" letter-spacing="1.5" fill="#8C8577">◂ LADO DEL PULGAR</text>`;
+  out+=`<text x="${r[0]}" y="${r[1]}" text-anchor="end" font-family="Inter" font-size="12" font-weight="600" letter-spacing="1.5" fill="#8C8577">LADO DEL MEÑIQUE ▸</text>`;
+  document.getElementById('fig').innerHTML=out;
+
+  const z=ZONES.find(z=>P<z.hi)||ZONES[ZONES.length-1];
+  document.querySelectorAll('.lamp').forEach((el,i)=>el.classList.toggle('on',ZONES[2-i]===z));
+  document.getElementById('stt').textContent=z.label;document.getElementById('std').textContent=z.desc;
+  document.getElementById('st').style.borderColor=z.c;
+}
+let pos='neu',sev=0,surg=0;
+const target=()=>{const n=PRES.normal[pos],c=PRES.cts[pos];return{P:surg?2.5+(n-2.5)*0.4:n+(c-n)*sev,s:sev*(surg?0.6:1),c:surg}};
+let cur=target(),from=cur,to=cur,t0=0,raf=0;
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const NOTES={flex:'Con la muñeca doblada el túnel se achica y el nervio se aprieta. Por eso, si dormís con la muñeca doblada, te despertás con la mano dormida.',ext:'Doblar la muñeca hacia atrás (apoyarse en la mano, empujar) también aprieta el nervio.',neu:'Con la muñeca derecha el nervio tiene más lugar. Por eso la férula nocturna mantiene la muñeca en esta posición.'};
+function go(){from={...cur};to=target();t0=performance.now();cancelAnimationFrame(raf);
+  const step=now=>{const t=clamp((now-t0)/700,0,1),e=ease(t);cur={P:from.P+(to.P-from.P)*e,s:from.s+(to.s-from.s)*e,c:from.c+(to.c-from.c)*e};render(cur.P,cur.s,cur.c);if(t<1)raf=requestAnimationFrame(step)};raf=requestAnimationFrame(step);
+  document.getElementById('note').textContent=surg?'Después de la cirugía: el ligamento quedó abierto, el túnel tiene más lugar y el nervio deja de estar apretado. La cicatriz rellena ese espacio con el tiempo, sin volver a apretar.':NOTES[pos];
+  const sb=document.getElementById('surg');sb.classList.toggle('on',!!surg);sb.textContent=surg?'↺ Volver a antes de la cirugía':'✂ Ver qué hace la cirugía';
+}
+document.querySelectorAll('#seg button').forEach(b=>b.addEventListener('click',()=>{document.querySelectorAll('#seg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');pos=b.dataset.p;go()}));
+document.getElementById('sl').addEventListener('input',e=>{sev=e.target.value/100;go()});
+document.getElementById('surg').addEventListener('click',()=>{surg=surg?0:1;if(surg&&sev<0.5){sev=1;document.getElementById('sl').value=100}go()});
+render(cur.P,cur.s,cur.c);go();
+})();
+</script>
+</body>
+</html>
