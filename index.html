@@ -90,6 +90,37 @@
   aplicar();
 })();
 </script>
+<script>
+// "Entendé tu afección": tarjeta en /afecciones que lleva a las páginas explicativas
+(function(){
+  function entende(){
+    if(!/^\/afecciones\/?$/i.test(location.pathname)) return;
+    if(document.querySelector('[data-entende]')) return;
+    var els=document.querySelectorAll('#root p,#root a,#root span,#root div');
+    for(var i=0;i<els.length;i++){
+      var e=els[i];
+      if(e.children.length===0 && /^\s*Aclaraci[oó]n/i.test(e.textContent)){
+        var s=document.createElement('section');
+        s.setAttribute('data-entende','1');
+        s.setAttribute('aria-label','Entendé tu afección');
+        s.style.cssText='max-width:720px;margin:8px auto 28px;padding:0 16px;text-align:center';
+        s.innerHTML='<div style="font-size:24px;font-weight:700;color:#4A1F8A;margin-bottom:14px">Entendé tu afección</div>'
+          +'<a href="/aprende/tunel-carpiano/" style="display:flex;gap:16px;align-items:center;text-align:left;text-decoration:none;color:#2b1d45;background:#fff;border-radius:18px;padding:18px 20px;box-shadow:0 8px 24px rgba(106,73,150,.15);border:1px solid #e6dcf5">'
+          +'<span style="flex:0 0 52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#6A4996,#DA5E2E);display:grid;place-items:center;font-size:26px" aria-hidden="true">✋</span>'
+          +'<span style="display:block"><span style="display:block;font-weight:700;font-size:18px">Síndrome del túnel carpiano</span>'
+          +'<span style="display:block;margin-top:4px;font-size:14.5px;line-height:1.45;color:#5c5470">Por qué se duermen los dedos, con una figura interactiva de la muñeca.</span>'
+          +'<span style="display:block;margin-top:8px;font-weight:700;color:#6A4996">Ver cómo funciona →</span></span></a>';
+        var block=e; while(block.parentElement && block.parentElement.id!=='root' && block.parentElement.children.length===1) block=block.parentElement;
+        block.parentElement.insertBefore(s,block);
+        return;
+      }
+    }
+  }
+  new MutationObserver(entende).observe(document.body,{childList:true,subtree:true});
+  window.addEventListener('popstate',entende);
+  entende();
+})();
+</script>
 
     <!-- Asistente virtual para pacientes (repo manosalta-agente, publicado en Netlify) -->
     <script src="https://manosalta-agente.netlify.app/chat-widget.js" defer></script>
