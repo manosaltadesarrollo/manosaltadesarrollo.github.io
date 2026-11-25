@@ -95,13 +95,15 @@ a{color:var(--pri)}
 .dv-chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;cursor:pointer;text-align:left;display:flex;flex-direction:column;font-size:13px;color:var(--ink)}
 .dv-chip span{color:var(--muted);font-size:12px}
 .dv-chip.on{border-color:var(--pri);background:var(--pri2)}
-.dv-stage{position:relative;background:#000;border-radius:10px;display:grid;place-items:center;height:min(62vh,720px);min-height:260px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
-.dv-stage canvas{width:100%;height:100%;object-fit:contain;display:block;touch-action:none;cursor:ns-resize}
+.dv-stage{position:relative;background:#000;border-radius:10px;display:block;height:min(62vh,720px);min-height:260px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.dv-stage canvas{position:absolute;left:0;top:0;max-width:none;max-height:none;display:block;touch-action:none;pointer-events:none}
+.dv-stage{cursor:grab}
+.dv-help{margin-top:6px;font-size:13px}
 .modal.full .dv-stage{height:calc(100vh - 200px - env(safe-area-inset-bottom))}
 .modal.full h3{margin-bottom:8px;font-size:16px}
-.dv-stage .dv-tl,.dv-stage .dv-bl,.dv-stage .dv-br{position:absolute;color:#e8e8e8;font:600 12px/1.3 system-ui;text-shadow:0 1px 2px #000;pointer-events:none}
-.dv-tl{left:10px;top:8px}.dv-bl{left:10px;bottom:8px}.dv-br{right:10px;bottom:8px}
-.dv-msg{position:absolute;inset:auto 16px;color:#fff;text-align:center;font-size:14px}
+.dv-stage .dv-tl,.dv-stage .dv-tr,.dv-stage .dv-bl,.dv-stage .dv-br{position:absolute;color:#e8e8e8;font:600 12px/1.3 system-ui;text-shadow:0 1px 2px #000;pointer-events:none}
+.dv-tl{left:10px;top:8px}.dv-tr{right:10px;top:8px}.dv-bl{left:10px;bottom:8px}.dv-br{right:10px;bottom:8px}
+.dv-msg{position:absolute;left:16px;right:16px;top:50%;transform:translateY(-50%);color:#fff;text-align:center;font-size:14px}
 .dv-slider{width:100%;margin:10px 0 4px;accent-color:var(--pri)}
 .dv-tools{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .dv-presets{display:contents}
@@ -1284,17 +1286,33 @@ async function mountViewer(el, files){
   const cache = new Map();
   el.innerHTML = `<div class="dv">
     ${list.length > 1 ? `<div class="dv-series">${list.map((s, i) => `<button class="dv-chip" data-s="${i}"><b>${esc(s.desc || 'Serie ' + (s.nro || i + 1))}</b><span>${s.imgs.length} img</span></button>`).join('')}</div>` : ''}
-    <div class="dv-stage"><canvas></canvas><div class="dv-tl"></div><div class="dv-bl"></div><div class="dv-br"></div><div class="dv-msg"></div></div>
+    <div class="dv-stage"><canvas></canvas><div class="dv-tl"></div><div class="dv-tr"></div><div class="dv-bl"></div><div class="dv-br"></div><div class="dv-msg"></div></div>
     <input type="range" class="dv-slider" min="0" value="0" step="1" aria-label="Imagen">
     <div class="dv-tools">
       <button class="btn sm" data-v="prev" title="Anterior">◀</button><button class="btn sm" data-v="next" title="Siguiente">▶</button>
       <button class="btn sm dv-mode" data-v="mode"></button>
       <span class="dv-presets"></span>
       <button class="btn sm" data-v="inv" title="Invertir">◐ Invertir</button><button class="btn sm" data-v="reset" title="Restablecer">↺</button>
+      <button class="btn sm" data-v="zout" title="Alejar">－</button><button class="btn sm" data-v="zin" title="Acercar">＋</button><button class="btn sm" data-v="fit" title="Ajustar al visor">Ajustar</button>
       <button class="btn sm" data-v="full" title="Pantalla completa">⛶</button>
-    </div></div>`;
+    </div>
+    <div class="sub dv-help">Dos dedos: pellizcar para acercar o alejar, y arrastrar para mover · doble toque: acercar / ajustar · el botón de modo elige qué hace un dedo.</div></div>`;
   const cv = el.querySelector('canvas'), slider = el.querySelector('.dv-slider'), msg = el.querySelector('.dv-msg');
   const tl = el.querySelector('.dv-tl'), bl = el.querySelector('.dv-bl'), br = el.querySelector('.dv-br');
+  const stage = el.querySelector('.dv-stage'), zl = el.querySelector('.dv-tr');
+  // ---- tamaño, centrado y zoom: los calcula la app (no dependen de cómo dibuje cada navegador) ----
+  let zoom = 1, panX = 0, panY = 0;
+  const fit = () => cv.width && cv.height ? Math.min(stage.clientWidth / cv.width, stage.clientHeight / cv.height) : 1;
+  function clampPan(){ const f = fit(), w = cv.width * f * zoom, h = cv.height * f * zoom;
+    const mx = Math.max(0, (w - stage.clientWidth) / 2), my = Math.max(0, (h - stage.clientHeight) / 2);
+    panX = Math.max(-mx, Math.min(mx, panX)); panY = Math.max(-my, Math.min(my, panY)); }
+  function layout(){ if (!cv.width || !stage.clientWidth) return; clampPan();
+    const W = stage.clientWidth, H = stage.clientHeight, f = fit(), w = cv.width * f * zoom, h = cv.height * f * zoom;
+    cv.style.width = w + 'px'; cv.style.height = h + 'px'; cv.style.left = ((W - w) / 2 + panX) + 'px'; cv.style.top = ((H - h) / 2 + panY) + 'px';
+    zl.textContent = zoom > 1.01 ? Math.round(zoom * 100) + '%' : ''; }
+  function zoomAt(z, px, py){ z = Math.max(1, Math.min(8, z)); const cx = (px - panX) / zoom, cy = (py - panY) / zoom; zoom = z; panX = px - cx * z; panY = py - cy * z; layout(); }
+  const resetView = () => { zoom = 1; panX = panY = 0; layout(); };
+  if (window.ResizeObserver) new ResizeObserver(() => layout()).observe(stage); else window.addEventListener('resize', layout);
   const keyOf = it => it.f.name + '#' + it.k + '#' + files.indexOf(it.f);
   async function get(it){ const k = keyOf(it); if (cache.has(k)) return cache.get(k);
     const p = dicomImage(it.f.buf, it.m, it.k); cache.set(k, p); if (cache.size > 60) cache.delete(cache.keys().next().value);
@@ -1307,37 +1325,61 @@ async function mountViewer(el, files){
     const my = ++token, it = S.imgs[idx]; slider.value = idx; labels();
     try { const img = await get(it); if (my !== token) return;
       if (!wl) wl = { wc: img.wc, ww: img.ww, invert: false };
-      msg.textContent = ''; drawDicom(cv, img, wl); labels(img); cv.style.visibility = 'visible';
+      msg.textContent = ''; drawDicom(cv, img, wl); layout(); labels(img); cv.style.visibility = 'visible';
       for (const d of [1, -1, 2]){ const j = idx + d; if (j >= 0 && j < S.imgs.length) get(S.imgs[j]).catch(() => {}); }
     } catch(e){ if (my !== token) return; msg.textContent = e.message; cv.style.visibility = 'hidden'; }
   }
-  function setSeries(s){ S = s; idx = Math.floor((S.imgs.length - 1) / 2); wl = null;
+  function setSeries(s){ S = s; idx = Math.floor((S.imgs.length - 1) / 2); wl = null; zoom = 1; panX = panY = 0;
     slider.max = Math.max(0, S.imgs.length - 1); slider.style.display = S.imgs.length > 1 ? '' : 'none';
     mode = S.imgs.length > 1 ? 'scroll' : 'wl'; paintMode();
     el.querySelectorAll('.dv-chip').forEach((b, i) => b.classList.toggle('on', list[i] === S));
     el.querySelector('.dv-presets').innerHTML = S.mod === 'CT' ? CT_PRESETS.map(([n], i) => `<button class="btn sm" data-p="${i}">${n}</button>`).join('') : '';
     show(); }
-  function paintMode(){ const b = el.querySelector('.dv-mode'); b.textContent = mode === 'scroll' ? '🎞 Modo: recorrer' : '🔆 Modo: brillo/contraste';
-    b.style.display = S.imgs.length > 1 ? '' : 'none'; }
+  const MODES = { scroll: '🎞 Modo: recorrer', wl: '🔆 Modo: brillo/contraste', pan: '✋ Modo: mover' };
+  const modeList = () => S.imgs.length > 1 ? ['scroll', 'wl', 'pan'] : ['wl', 'pan'];
+  function paintMode(){ el.querySelector('.dv-mode').textContent = MODES[mode]; }
   const go = d => { const j = Math.max(0, Math.min(S.imgs.length - 1, idx + d)); if (j !== idx){ idx = j; show(); } };
   slider.oninput = () => { idx = +slider.value; show(); };
   el.querySelector('.dv-tools').onclick = async e => { const b = e.target.closest('button'); if (!b) return;
     const v = b.dataset.v, p = b.dataset.p;
     if (v === 'prev') go(-1); else if (v === 'next') go(1);
-    else if (v === 'mode'){ mode = mode === 'scroll' ? 'wl' : 'scroll'; paintMode(); }
+    else if (v === 'mode'){ const l = modeList(); mode = l[(l.indexOf(mode) + 1) % l.length]; paintMode(); }
     else if (v === 'inv' && wl){ wl.invert = !wl.invert; show(); }
     else if (v === 'reset'){ wl = null; show(); }
-    else if (v === 'full'){ const md = el.closest('.modal'); md.classList.toggle('full'); b.textContent = md.classList.contains('full') ? '✕ Salir' : '⛶'; }
+    else if (v === 'full'){ const md = el.closest('.modal'); md.classList.toggle('full'); b.textContent = md.classList.contains('full') ? '✕ Salir' : '⛶'; setTimeout(layout, 50); }
+    else if (v === 'zin') zoomAt(zoom * 1.5, 0, 0);
+    else if (v === 'zout') zoomAt(zoom / 1.5, 0, 0);
+    else if (v === 'fit') resetView();
     else if (p != null && wl){ const [, c, w] = CT_PRESETS[+p]; wl.wc = c; wl.ww = w; show(); } };
   el.querySelectorAll('.dv-chip').forEach((b, i) => b.onclick = () => setSeries(list[i]));
-  // gestos: arrastrar = recorrer cortes o brillo/contraste; rueda = recorrer
-  let st = null;
-  cv.onpointerdown = e => { st = { x: e.clientX, y: e.clientY, idx, wc: wl && wl.wc, ww: wl && wl.ww }; cv.setPointerCapture(e.pointerId); };
-  cv.onpointermove = e => { if (!st) return; const dx = e.clientX - st.x, dy = e.clientY - st.y;
-    if (mode === 'scroll'){ const step = Math.max(4, Math.min(14, 400 / S.imgs.length)); const j = Math.max(0, Math.min(S.imgs.length - 1, st.idx + Math.round(dy / step))); if (j !== idx){ idx = j; show(); } }
+  // ---- gestos ----
+  // 1 dedo: recorrer cortes / brillo-contraste (con zoom: mover la imagen) · 2 dedos: zoom y mover · doble toque: acercar/ajustar
+  const ptrs = new Map(); let st = null, pinch = null, lastTap = 0;
+  const rel = e => { const r = stage.getBoundingClientRect(); return { x: e.clientX - r.left - r.width / 2, y: e.clientY - r.top - r.height / 2 }; };
+  const startOne = (p, moved) => { st = { x: p.x, y: p.y, idx, wc: wl && wl.wc, ww: wl && wl.ww, px: panX, py: panY, moved }; };
+  stage.addEventListener('gesturestart', e => e.preventDefault());     // Safari: que el pellizco no agrande toda la página
+  stage.addEventListener('gesturechange', e => e.preventDefault());
+  stage.onpointerdown = e => { try { stage.setPointerCapture(e.pointerId); } catch(_){}
+    ptrs.set(e.pointerId, rel(e));
+    if (ptrs.size === 2){ const [p1, p2] = [...ptrs.values()]; pinch = { d: Math.hypot(p1.x - p2.x, p1.y - p2.y) || 1, z: zoom, mx: (p1.x + p2.x) / 2, my: (p1.y + p2.y) / 2, px: panX, py: panY }; st = null; }
+    else if (ptrs.size === 1) startOne(rel(e), false); };
+  stage.onpointermove = e => { if (!ptrs.has(e.pointerId)) return; ptrs.set(e.pointerId, rel(e));
+    if (pinch && ptrs.size >= 2){ const [p1, p2] = [...ptrs.values()], d = Math.hypot(p1.x - p2.x, p1.y - p2.y), mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+      const z = Math.max(1, Math.min(8, pinch.z * d / pinch.d)), cx = (pinch.mx - pinch.px) / pinch.z, cy = (pinch.my - pinch.py) / pinch.z;
+      zoom = z; panX = mx - cx * z; panY = my - cy * z; layout(); return; }
+    if (!st) return; const p = rel(e), dx = p.x - st.x, dy = p.y - st.y; if (Math.abs(dx) + Math.abs(dy) > 6) st.moved = true;
+    const m = mode === 'scroll' && zoom > 1.01 ? 'pan' : mode;     // con zoom, "recorrer" pasa a mover la imagen
+    if (m === 'pan'){ panX = st.px + dx; panY = st.py + dy; layout(); }
+    else if (m === 'scroll'){ const step = Math.max(4, Math.min(14, 400 / S.imgs.length)); const j = Math.max(0, Math.min(S.imgs.length - 1, st.idx + Math.round(dy / step))); if (j !== idx){ idx = j; show(); } }
     else if (wl){ const k = Math.max(1, wl.ww0 || st.ww) / 250; wl.ww = Math.max(1, st.ww + dx * k); wl.wc = st.wc + dy * k; get(S.imgs[idx]).then(img => { drawDicom(cv, img, wl); labels(img); }).catch(() => {}); } };
-  cv.onpointerup = cv.onpointercancel = () => st = null;
-  cv.onwheel = e => { e.preventDefault(); go(e.deltaY > 0 ? 1 : -1); };
+  const end = e => { const wasTap = st && !st.moved && ptrs.size === 1 && e.type === 'pointerup';
+    ptrs.delete(e.pointerId); if (ptrs.size < 2) pinch = null;
+    if (ptrs.size === 1) startOne([...ptrs.values()][0], true);       // al soltar un dedo, seguir sin saltos
+    if (ptrs.size === 0){ st = null;
+      if (wasTap){ const now = Date.now(); if (now - lastTap < 350){ const p = rel(e); zoom > 1.01 ? resetView() : zoomAt(2.5, p.x, p.y); lastTap = 0; } else lastTap = now; } } };
+  stage.onpointerup = stage.onpointercancel = end;
+  // rueda: recorrer cortes · Ctrl + rueda o pellizco del trackpad: zoom
+  stage.onwheel = e => { e.preventDefault(); if (e.ctrlKey || e.metaKey){ const p = rel(e); zoomAt(zoom * Math.exp(-e.deltaY / 200), p.x, p.y); } else go(e.deltaY > 0 ? 1 : -1); };
   el.tabIndex = 0; el.onkeydown = e => { if (e.key === 'ArrowDown' || e.key === 'ArrowRight'){ e.preventDefault(); go(1); } if (e.key === 'ArrowUp' || e.key === 'ArrowLeft'){ e.preventDefault(); go(-1); } };
   setSeries(S);
   // recordar el ventaneo inicial para escalar el gesto
