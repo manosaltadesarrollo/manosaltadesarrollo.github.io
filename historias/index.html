@@ -88,6 +88,8 @@ textarea.i{resize:vertical;min-height:90px}
 details summary{cursor:pointer;font-weight:600}
 a{color:var(--pri)}
 #print{display:none}
+.pdfopts{display:flex;flex-direction:column;gap:8px}
+.pdfopts .pillopt{width:100%}
 .uso{margin:14px 0}
 .uso .row{font-size:15px;gap:8px}
 .uso-barra{height:14px;border-radius:99px;background:var(--line);overflow:hidden;margin:6px 0 4px}
@@ -2024,6 +2026,97 @@ async function revisarUso(){
   try { await calcularUso(true); if (App.view === 'home' && !$('#ov')) renderHome(); } catch(_){}
 }
 
+/* ===================== Historia en PDF (imprimir / compartir) =====================
+   En el iPad, una app instalada en la pantalla de inicio no puede imprimir directo:
+   se genera un PDF y se usa el menú Compartir (Imprimir, Guardar en Archivos, WhatsApp, Mail…). */
+const cargarPDFLib = () => Codecs.script('jspdf.umd.min.js', 'jspdf').catch(() => { throw Codecs.fail(); });
+async function generarPDF(p, modo, desde, conAnt){
+  const { jsPDF } = await cargarPDFLib();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, H = 297, M = 18, CW = W - 2 * M; let y = M;
+  // la tipografía estándar del PDF admite tildes y ñ; se reemplazan sólo símbolos especiales
+  const T = s => String(s ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/…/g, '...').replace(/\t/g, '    ').replace(/[^\x00-\xff\n]/g, '');
+  const lh = sz => sz * 0.3528 * 1.4;
+  const ensure = h => { if (y + h > H - 20){ doc.addPage(); y = M; } };
+  const write = (txt, o = {}) => { const { size = 10.5, style = 'normal', color = [30, 30, 30], align = 'left' } = o;
+    doc.setFont('helvetica', style); doc.setFontSize(size); doc.setTextColor(...color);
+    for (const par of T(txt).split('\n')){ const lines = par ? doc.splitTextToSize(par, CW) : [''];
+      for (const ln of lines){ ensure(lh(size)); doc.text(ln, align === 'right' ? W - M : M, y, { align, baseline: 'top' }); y += lh(size); } } };
+  // encabezado
+  const logoH = 11; doc.addImage(LOGOS.logoGris, 'PNG', M, y, logoH * 1048 / 229, logoH);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(90, 90, 90); doc.text('Historia clínica', W - M, y + 1.5, { align: 'right', baseline: 'top' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.text('Emitida el ' + fmtDT(Date.now()), W - M, y + 7, { align: 'right', baseline: 'top' });
+  y += logoH + 4; doc.setDrawColor(190, 190, 190); doc.setLineWidth(0.3); doc.line(M, y, W - M, y); y += 5;
+  // paciente
+  write(fullName(p), { size: 16, style: 'bold', color: [20, 20, 20] }); y += 0.5;
+  const sx = ({ F: 'Femenino', M: 'Masculino' })[p.sexo] || '';
+  write([p.dni ? 'DNI ' + fmtDNI(p.dni) : '', p.nacimiento ? 'Nac. ' + fmtDate(p.nacimiento) + ' (' + edad(p.nacimiento) + ')' : edadAprox(p), sx].filter(Boolean).join('  ·  '), { size: 10, color: [70, 70, 70] });
+  write([p.obraSocial ? p.obraSocial + (p.nroAfiliado ? ' Nº ' + p.nroAfiliado : '') : '', p.telefono ? 'Tel. ' + p.telefono : ''].filter(Boolean).join('  ·  '), { size: 10, color: [70, 70, 70] });
+  y += 2;
+  if (p.alergias) write('ALERGIAS: ' + p.alergias, { style: 'bold', color: [180, 35, 24] });
+  if (conAnt && p.antecedentes){ y += 2; write('Antecedentes', { style: 'bold', size: 11 }); write(p.antecedentes); }
+  if (conAnt && p.medicacion){ y += 2; write('Medicación habitual', { style: 'bold', size: 11 }); write(p.medicacion); }
+  // evoluciones (orden cronológico)
+  let evs = [...(p.evoluciones || [])].sort((a, b) => a.fecha - b.fecha);
+  if (modo === 'ultima') evs = evs.slice(-1);
+  else if (modo === 'desde' && desde) evs = evs.filter(e => isoDate(new Date(e.fecha)) >= desde);
+  y += 4; ensure(14); doc.setDrawColor(218, 93, 48); doc.setLineWidth(0.7); doc.line(M, y, M + 22, y); doc.setLineWidth(0.3); y += 2.5;
+  write(modo === 'ultima' ? 'Evolución' : 'Evoluciones' + (modo === 'desde' && desde ? ' desde el ' + fmtDate(desde) : ''), { size: 12, style: 'bold', color: [105, 73, 151] }); y += 1;
+  if (!evs.length) write('Sin evoluciones en el período elegido.', { color: [120, 120, 120] });
+  for (const e of evs){
+    ensure(lh(10.5) * 3 + 6);
+    write(fmtDT(e.fecha) + (e.editado ? '   (corregida el ' + fmtDT(e.editado) + ')' : ''), { size: 9.5, style: 'bold', color: [80, 80, 80] });
+    write(e.texto);
+    if (e.autor && e.autor.n) write(e.autor.n + (e.autor.m ? ' · ' + e.autor.m : ''), { size: 9.5, style: 'italic', color: [105, 73, 151], align: 'right' });
+    y += 2; doc.setDrawColor(225, 225, 225); doc.line(M, y, W - M, y); y += 4;
+  }
+  // estudios cargados (sólo en la historia completa)
+  const ests = (p.adjuntos || []).filter(a => !a.borrado).sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+  if (modo === 'todo' && ests.length){ y += 2; write('Estudios en la ficha', { size: 11, style: 'bold' });
+    for (const a of ests) write('•  ' + fmtDate(a.fecha || '') + '   ' + (a.desc || a.nombre), { size: 9.5, color: [60, 60, 60] }); }
+  // pie de página
+  const n = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= n; i++){ doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(130, 130, 130);
+    doc.setDrawColor(225, 225, 225); doc.line(M, H - 14, W - M, H - 14);
+    doc.text(T(fullName(p) + (p.dni ? '  ·  DNI ' + fmtDNI(p.dni) : '')), M, H - 12, { baseline: 'top' });
+    doc.text('Página ' + i + ' de ' + n, W - M, H - 12, { align: 'right', baseline: 'top' });
+    doc.text(T(MARCA.nombre + ' · ' + MARCA.producto), W / 2, H - 12, { align: 'center', baseline: 'top' }); }
+  return { blob: doc.output('blob'), paginas: n, evoluciones: evs.length };
+}
+function imprimirModal(){
+  const p = byId(App.current); if (!p) return;
+  cargarPDFLib().catch(() => {});      // se precarga mientras se eligen las opciones
+  const n = (p.evoluciones || []).length;
+  openModal('🖨️ Imprimir o compartir', `
+    <p class="sub" style="margin-top:0">Se genera un PDF de la historia de <b>${esc(fullName(p))}</b> para imprimir, guardar o enviar.</p>
+    <div class="pdfopts">
+      <label class="pillopt"><input type="radio" name="pdfModo" value="todo" checked> Toda la historia (${n} evoluci${n === 1 ? 'ón' : 'ones'})</label>
+      <label class="pillopt"><input type="radio" name="pdfModo" value="ultima" ${n ? '' : 'disabled'}> Sólo la última evolución</label>
+      <label class="pillopt"><input type="radio" name="pdfModo" value="desde"> Desde el <input class="i" type="date" id="pdfDesde" style="width:auto;padding:4px 8px;margin-left:6px"></label>
+    </div>
+    <label class="row" style="margin:10px 0"><input type="checkbox" id="pdfAnt" checked style="width:20px;height:20px"> Incluir antecedentes y medicación</label>
+    <div id="pdfRes"></div>
+    <div class="actions"><button class="btn" data-act="close">Cerrar</button><button class="btn pri" id="pdfGo">📄 Generar PDF</button></div>`);
+  $('#pdfDesde').onfocus = () => { $('input[name=pdfModo][value=desde]').checked = true; };
+  $('#pdfGo').onclick = async () => {
+    const b = $('#pdfGo'); b.disabled = true; b.textContent = 'Generando…';
+    try {
+      const modo = $('input[name=pdfModo]:checked').value;
+      const r = await generarPDF(p, modo, $('#pdfDesde').value, $('#pdfAnt').checked);
+      const name = ('HC_' + p.apellido + '_' + p.nombre + '_' + isoDate(new Date())).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '_') + '.pdf';
+      const file = new File([r.blob], name, { type: 'application/pdf' });
+      const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+      $('#pdfRes').innerHTML = `<div class="alert info">✅ PDF listo: ${r.paginas} página${r.paginas === 1 ? '' : 's'}, ${r.evoluciones} evoluci${r.evoluciones === 1 ? 'ón' : 'ones'}.
+        ${canShare ? 'Tocá <b>Compartir / Imprimir</b> y elegí <b>Imprimir</b>, <b>Guardar en Archivos</b>, WhatsApp o Mail.' : ''}</div>
+        <div class="row" style="gap:8px">${canShare ? '<button class="btn pri" id="pdfShare">📤 Compartir / Imprimir</button>' : ''}<button class="btn ${canShare ? '' : 'pri'}" id="pdfOpen">🖨️ Abrir para imprimir</button><button class="btn" id="pdfDown">⬇️ Descargar</button></div>`;
+      b.textContent = '📄 Generar de nuevo'; b.disabled = false; b.classList.remove('pri');
+      if ($('#pdfShare')) $('#pdfShare').onclick = async () => { try { await navigator.share({ files: [file], title: name }); } catch(e){ if (e.name !== 'AbortError') toast('No se pudo compartir: probá con Descargar'); } };
+      $('#pdfOpen').onclick = () => { const u = URL.createObjectURL(r.blob); const w = window.open(u, '_blank'); if (!w) location.href = u; };
+      $('#pdfDown').onclick = () => downloadBlob(r.blob, name);
+    } catch(e){ $('#pdfRes').innerHTML = `<div class="alert danger">${esc(e.message)}</div>`; b.disabled = false; b.textContent = '📄 Generar PDF'; }
+  };
+}
+
 /* ===================== Dictado por voz ===================== */
 const MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>';
 const Dict = {
@@ -2215,7 +2308,7 @@ document.addEventListener('click', async e => {
     case 'newturno': turnoForm(byId(App.current)); break;
     case 'saveevo': saveEvo(); break;
     case 'editevo': editEvo(el.dataset.eid); break;
-    case 'print': printPatient(); break;
+    case 'print': imprimirModal(); break;
     case 'pacs': openPacs(); break;
     case 'pacscfg': pacsConfig(); break;
     case 'pacs-del': el.closest('.pacsrow').remove(); break;
