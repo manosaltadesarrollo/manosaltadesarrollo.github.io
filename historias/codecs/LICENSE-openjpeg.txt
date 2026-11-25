@@ -1,0 +1,2 @@
+OpenJPEG (BSD-2-Clause) - @cornerstonejs/codec-openjpeg (MIT)
+https://github.com/cornerstonejs/codecs
