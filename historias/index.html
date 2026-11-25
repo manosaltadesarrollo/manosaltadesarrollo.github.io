@@ -88,6 +88,16 @@ textarea.i{resize:vertical;min-height:90px}
 details summary{cursor:pointer;font-weight:600}
 a{color:var(--pri)}
 #print{display:none}
+.luz{width:12px;height:12px;border-radius:50%;flex:none;display:inline-block}
+.luz.espera{background:#f79009;box-shadow:0 0 0 3px rgba(247,144,9,.22);animation:titila 1.6s ease-in-out infinite}
+.luz.atendido{background:#12b76a;box-shadow:0 0 0 3px rgba(18,183,106,.2)}
+@keyframes titila{50%{box-shadow:0 0 0 6px rgba(247,144,9,.08)}}
+li.tl-atendido .name{color:var(--muted)}
+.pill.estado{border:0;cursor:pointer;padding:5px 10px;font-size:13px}
+.conteo{font-size:12px;font-weight:600;text-transform:none;letter-spacing:0;margin-left:8px;display:inline-flex;gap:6px;align-items:center;color:var(--muted)}
+.conteo .luz{width:9px;height:9px;animation:none;margin-left:6px}
+.firma{font-size:12px;color:var(--pri);font-weight:600;background:var(--pri2);border-radius:99px;padding:1px 8px}
+.invcode{background:var(--bg);border:1px dashed var(--pri);border-radius:10px;padding:10px;font-family:ui-monospace,monospace;font-size:13px;word-break:break-all;user-select:all;-webkit-user-select:all}
 .lstab{overflow:auto;max-height:55vh;border:1px solid var(--line);border-radius:10px}
 .lstab table{width:100%;border-collapse:collapse;font-size:14px}
 .lstab th,.lstab td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
@@ -237,7 +247,9 @@ const DB = {
 };
 
 /* ===================== Cifrado (AES-256-GCM + PBKDF2) ===================== */
-let KEY = null;
+let KEY = null;     // clave de datos (la del equipo): cifra pacientes, sesión, etc.
+let UKEY = null;    // clave personal, derivada de la clave maestra: sólo protege la copia de la clave de datos
+let DKRAW = null;   // bytes de la clave de datos (para invitar colegas)
 const te = new TextEncoder(), td = new TextDecoder();
 function b64(u8){ let s=''; for (let i=0;i<u8.length;i+=0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i+0x8000)); return btoa(s); }
 function unb64(s){ const b = atob(s); const u = new Uint8Array(b.length); for (let i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; }
@@ -254,6 +266,35 @@ async function deriveAuth(pass, email){
 async function enc(obj, key = KEY){ const iv = crypto.getRandomValues(new Uint8Array(12)); const ct = await crypto.subtle.encrypt({ name:'AES-GCM', iv }, key, te.encode(JSON.stringify(obj))); return { iv: b64(iv), ct: b64(new Uint8Array(ct)) }; }
 async function dec(box, key = KEY){ const pt = await crypto.subtle.decrypt({ name:'AES-GCM', iv: unb64(box.iv) }, key, unb64(box.ct)); return JSON.parse(td.decode(pt)); }
 const VERIF = 'historias-clinicas-ok';
+const importDK = raw => crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
+const wrapDK = (raw, k) => enc({ dk: b64(raw) }, k);
+async function unwrapDK(box, k){ return unb64((await dec(box, k)).dk); }
+async function setDataKey(raw){ DKRAW = raw; KEY = await importDK(raw); }
+const newRawKey = () => crypto.getRandomValues(new Uint8Array(32));
+const sameRaw = (a, b) => !!a && !!b && b64(a) === b64(b);
+// Abre la clave de datos con la clave personal. Si los datos son de la versión anterior (sin clave de datos), los migra.
+async function openDataKey(){
+  const box = await DB.getMeta('dk');
+  if (box){ await setDataKey(await unwrapDK(box, UKEY)); return; }
+  const oldKey = UKEY, raw = newRawKey(); await setDataKey(raw);
+  const out = [];
+  for (const r of await DB.all()){ try { const p = await dec(r.box, oldKey); out.push({ id: r.id, box: await enc(p), rev: null, dirty: true, lv: (r.lv || 0) + 1 }); } catch(_){} }
+  if (out.length) await DB.putMany(out);
+  const ses = await DB.getMeta('session'); if (ses){ try { await DB.setMeta('session', await enc(await dec(ses, oldKey))); } catch(_){ await DB.delMeta('session'); } }
+  await DB.setMeta('dk', await wrapDK(raw, UKEY)); await DB.setMeta('lastRev', 0); await DB.delMeta('equipo');
+}
+// Invitaciones: el código lleva el número de invitación y un secreto que nunca llega al servidor
+const b64url = u8 => b64(u8).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+const unb64url = s => unb64(s.replace(/-/g, '+').replace(/_/g, '/') + '==='.slice((s.length + 3) % 4));
+async function inviteKey(secret){ return crypto.subtle.importKey('raw', await crypto.subtle.digest('SHA-256', secret), 'AES-GCM', false, ['encrypt', 'decrypt']); }
+function makeInviteCode(id, secret){ const u = new Uint8Array(16); id.replace(/-/g, '').match(/../g).forEach((h, i) => u[i] = parseInt(h, 16)); const all = new Uint8Array(34); all.set(u); all.set(secret, 16); return 'MANO-' + b64url(all); }
+function parseInviteCode(code){
+  const m = String(code || '').match(/MANO-([A-Za-z0-9_-]{40,})/) || String(code || '').match(/invitacion=([A-Za-z0-9_-]{40,})/); const c = m ? m[1] : String(code || '').trim();
+  let u; try { u = unb64url(c); } catch(_){ throw new Error('El código de invitación no es válido.'); }
+  if (u.length !== 34) throw new Error('El código de invitación no es válido.');
+  const h = [...u.slice(0, 16)].map(x => x.toString(16).padStart(2, '0')).join('');
+  return { id: `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`, secret: u.slice(16) };
+}
 async function checkPass(pass, saltB64, verifier){ try { const k = await deriveKey(pass, unb64(saltB64)); return (await dec(verifier, k)) === VERIF ? k : null; } catch(_){ return null; } }
 
 /* ===================== Estado ===================== */
@@ -278,7 +319,7 @@ function newPatient(data = {}){
    El servidor sólo recibe datos ya cifrados con tu clave maestra: ni Supabase ni nadie más puede leerlos. */
 const Sync = {
   cfg: null, sess: null, email: '', lastRev: 0, vaultAt: null, busy: false, again: false, timer: null,
-  status: 'off', detail: '', pending: 0, lastOk: null, paused: false,
+  status: 'off', detail: '', pending: 0, lastOk: null, paused: false, eq: null, members: [],
   configured(){ return !!(this.cfg && this.cfg.url && this.cfg.anon); },
   enabled(){ return this.configured() && !!this.sess && !this.paused; },
   defaultCfg(){ return SUPABASE_URL && SUPABASE_ANON_KEY ? { url: SUPABASE_URL.replace(/\/+$/, ''), anon: SUPABASE_ANON_KEY } : null; },
@@ -287,6 +328,8 @@ const Sync = {
     this.email = (await DB.getMeta('syncEmail')) || '';
     this.lastRev = (await DB.getMeta('lastRev')) || 0;
     this.vaultAt = (await DB.getMeta('vaultAt')) || null;
+    this.eq = (await DB.getMeta('equipo')) || null;
+    this.members = (await DB.getMeta('miembros')) || [];
     const s = await DB.getMeta('session');
     this.sess = null; this.paused = false;
     if (s && KEY) { try { this.sess = await dec(s); } catch(_){} }
@@ -294,7 +337,8 @@ const Sync = {
   },
   reset(){ clearTimeout(this.timer); this.sess = null; this.status = 'off'; this.busy = false; },
   async saveSess(){ await DB.setMeta('session', await enc(this.sess)); },
-  setSess(j){ this.sess = { access_token: j.access_token, refresh_token: j.refresh_token, expires_at: Date.now() + (j.expires_in || 3600) * 1000, user_id: j.user && j.user.id }; },
+  setSess(j){ const prev = this.sess && this.sess.user_id; this.sess = { access_token: j.access_token, refresh_token: j.refresh_token, expires_at: Date.now() + (j.expires_in || 3600) * 1000, user_id: (j.user && j.user.id) || prev }; },
+  myId(){ return (this.sess && this.sess.user_id) || 'local'; },
   async auth(path, body, method = 'POST', token){
     const h = { apikey: this.cfg.anon, 'Content-Type': 'application/json' }; if (token) h.Authorization = 'Bearer ' + token;
     let r; try { r = await fetch(this.cfg.url + '/auth/v1/' + path, { method, headers: h, body: JSON.stringify(body) }); }
@@ -322,53 +366,134 @@ const Sync = {
     const txt = await r.text(); let data = null; try { data = txt ? JSON.parse(txt) : null; } catch(_){}
     return { status: r.status, ok: r.ok, data };
   },
-  /* Conectar este dispositivo a la cuenta (crear cuenta o ingresar) */
-  async connect(email, pass, mode, cfg){
+  /* Conectar este dispositivo a la cuenta (crear cuenta, ingresar o aceptar una invitación) */
+  async connect(email, pass, mode, cfg, extra = {}){
     if (cfg) this.cfg = cfg;
     if (!this.configured()) throw new Error('Falta configurar la dirección y la clave pública del servidor.');
     email = email.trim().toLowerCase();
     const authPw = await deriveAuth(pass, email);
     let j;
-    if (mode === 'signup'){
-      j = await this.auth('signup', { email, password: authPw });
+    if (mode === 'signup' || mode === 'invite'){
+      try { j = await this.auth('signup', { email, password: authPw }); }
+      catch(e){ if (mode === 'invite' && /ya tiene cuenta/.test(e.message)) j = await this.auth('token?grant_type=password', { email, password: authPw }); else throw e; }
       if (!j.access_token) throw new Error('Cuenta creada, pero el servidor pide confirmar el email: abrí el enlace que te llegó por correo y después elegí “Ya tengo cuenta”.');
     } else j = await this.auth('token?grant_type=password', { email, password: authPw });
     this.setSess(j); this.paused = false;
+    // 1) bóveda personal (protege la copia de la clave de datos)
     const v = await this.rest('GET', 'vault?select=salt,verifier,updated_at');
     if (!v.ok) throw new Error('El servidor respondió con error ' + v.status + '. ¿Se ejecutó el script supabase.sql?');
     let vault = v.data && v.data[0];
     const localSalt = await DB.getMeta('salt');
     if (vault){
-      const key = await checkPass(pass, vault.salt, vault.verifier);
-      if (!key) throw new Error('La clave maestra no coincide con la de la cuenta.');
-      if (localSalt && localSalt !== vault.salt){
-        // Los datos de este dispositivo estaban cifrados con otra clave: se re-cifran con la de la cuenta.
-        const recs = [];
-        for (const p of App.patients){ const old = await DB.get(p.id); recs.push({ id: p.id, box: await enc(p, key), rev: old && old.rev || null, dirty: !(old && old.rev) || !!(old && old.dirty), lv: ((old && old.lv) || 0) + 1 }); }
-        await DB.putMany(recs);
-      }
-      KEY = key;
-      await DB.setMeta('salt', vault.salt); await DB.setMeta('verifier', vault.verifier);
+      const k = await checkPass(pass, vault.salt, vault.verifier);
+      if (!k) throw new Error('La clave maestra no coincide con la de la cuenta.');
+      UKEY = k;
     } else {
-      if (!localSalt){ const salt = crypto.getRandomValues(new Uint8Array(16)); KEY = await deriveKey(pass, salt); await DB.setMeta('salt', b64(salt)); await DB.setMeta('verifier', await enc(VERIF)); }
-      else { const k = await checkPass(pass, localSalt, await DB.getMeta('verifier')); if (!k) throw new Error('La clave no coincide con la clave maestra de este dispositivo.'); KEY = k; }
-      const r = await this.rest('POST', 'vault', { salt: await DB.getMeta('salt'), verifier: await DB.getMeta('verifier') }, 'return=representation');
+      let salt = localSalt, verifier = await DB.getMeta('verifier');
+      if (salt){ const k = await checkPass(pass, salt, verifier); if (!k) throw new Error('La clave no coincide con la clave maestra de este dispositivo.'); UKEY = k; }
+      else { const sb = crypto.getRandomValues(new Uint8Array(16)); salt = b64(sb); UKEY = await deriveKey(pass, sb); verifier = await enc(VERIF, UKEY); }
+      const r = await this.rest('POST', 'vault', { salt, verifier }, 'return=representation');
       if (!r.ok) throw new Error('No se pudo crear la cuenta cifrada en el servidor (error ' + r.status + ').');
       vault = r.data[0];
-      const all = await DB.all(); all.forEach(rec => { rec.dirty = true; rec.rev = null; }); await DB.putMany(all);
     }
-    this.email = email; this.vaultAt = vault.updated_at; this.lastRev = 0;
-    await DB.setMeta('syncCfg', this.cfg); await DB.setMeta('syncEmail', email); await DB.setMeta('vaultAt', vault.updated_at); await DB.setMeta('lastRev', 0);
+    await DB.setMeta('salt', vault.salt); await DB.setMeta('verifier', vault.verifier);
+    this.email = email; this.vaultAt = vault.updated_at;
+    await DB.setMeta('syncCfg', this.cfg); await DB.setMeta('syncEmail', email); await DB.setMeta('vaultAt', vault.updated_at);
+    if (extra.perfil) await DB.setMeta('perfil', extra.perfil);
+    // 2) equipo
+    this.eq = null; await DB.delMeta('equipo');
+    await this.ensureTeam(extra.invite || null, extra.perfil || null, extra.migrarLegacy !== false);
     await this.saveSess();
     await this.sync();
   },
-  async disconnect(){ this.reset(); for (const k of ['session','syncEmail','vaultAt','lastRev']) await DB.delMeta(k); this.email = ''; this.setStatus('off'); },
+  // Re-cifra los datos locales si la clave de datos cambia (p. ej. al unirse a un equipo)
+  async adoptDataKey(raw){
+    if (!sameRaw(DKRAW, raw)){
+      await setDataKey(raw);
+      const recs = []; for (const p of App.patients){ const old = await DB.get(p.id); recs.push({ id: p.id, box: await enc(p), rev: null, dirty: true, lv: ((old && old.lv) || 0) + 1 }); }
+      if (recs.length) await DB.putMany(recs);
+      this.lastRev = 0; await DB.setMeta('lastRev', 0);
+    }
+    await DB.setMeta('dk', await wrapDK(raw, UKEY));
+  },
+  async ensureTeam(invite, perfil, migrar = true, intento = 0){
+    const uid = this.sess.user_id;
+    const perfilBox = async () => { const pf = perfil || await DB.getMeta('perfil'); return pf ? await enc(pf) : null; };
+    if (invite){
+      const { id, secret } = parseInviteCode(invite);
+      const r = await this.rest('POST', 'rpc/ver_invitacion', { p_id: id });
+      if (!r.ok) throw new Error('No se pudo leer la invitación (error ' + r.status + '). ¿Se ejecutó la última versión de supabase.sql?');
+      if (!r.data || !r.data.length) throw new Error('La invitación no es válida, ya se usó o venció. Pedile una nueva a quien te invitó.');
+      let raw; try { raw = await unwrapDK(r.data[0].clave, await inviteKey(secret)); } catch(_){ throw new Error('El código de invitación está incompleto o mal copiado.'); }
+      await this.adoptDataKey(raw);
+      const a = await this.rest('POST', 'rpc/aceptar_invitacion', { p_id: id, p_clave: await wrapDK(raw, UKEY), p_perfil: await perfilBox() });
+      if (!a.ok) throw new Error((a.data && a.data.message) || 'No se pudo aceptar la invitación.');
+      this.eq = { id: a.data, rol: 'medico' };
+    } else {
+      const m = await this.rest('GET', `miembros?select=equipo_id,rol,activo,clave&user_id=eq.${uid}`);
+      if (!m.ok) throw new Error('El servidor respondió con error ' + m.status + '. Ejecutá la última versión de supabase.sql (agrega los equipos).');
+      const mine = (m.data || []).find(x => x.activo);
+      if (!mine && (m.data || []).length){ this.paused = 'baja'; throw new Error('Tu acceso al equipo fue dado de baja. Consultá con el administrador.'); }
+      if (mine){
+        let raw; try { raw = await unwrapDK(mine.clave, UKEY); } catch(_){ throw new Error('No se pudo abrir la clave del equipo con tu clave maestra.'); }
+        await this.adoptDataKey(raw);
+        this.eq = { id: mine.equipo_id, rol: mine.rol };
+      } else {
+        // Primera vez: se crea el equipo con los datos de este dispositivo
+        const raw = DKRAW || newRawKey(); await this.adoptDataKey(raw);
+        const e = await this.rest('POST', 'equipos', { nombre: MARCA.nombre }, 'return=representation');
+        if (!e.ok){ if (e.status === 409 && intento < 2){ await new Promise(r => setTimeout(r, 1500)); return this.ensureTeam(null, perfil, migrar, intento + 1); } throw new Error('No se pudo crear el equipo (error ' + e.status + ').'); }
+        const eqId = e.data[0].id;
+        const r = await this.rest('POST', 'miembros', { equipo_id: eqId, rol: 'admin', clave: await wrapDK(raw, UKEY), perfil: await perfilBox() }, 'return=representation');
+        if (!r.ok) throw new Error('No se pudo crear el equipo (error ' + r.status + ').');
+        this.eq = { id: eqId, rol: 'admin' };
+        if (migrar) await this.migrateLegacy();
+        const all = await DB.all(); all.forEach(x => { x.dirty = true; x.rev = null; }); if (all.length) await DB.putMany(all);
+        this.lastRev = 0; await DB.setMeta('lastRev', 0);
+      }
+    }
+    await DB.setMeta('equipo', this.eq);
+    await this.loadMembers();
+  },
+  // Pacientes guardados por la versión anterior (antes de los equipos)
+  async migrateLegacy(){
+    let from = 0;
+    for (;;){
+      const r = await this.rest('GET', `records?select=id,box&order=id.asc&offset=${from}&limit=500`);
+      if (!r.ok || !r.data || !r.data.length) break;
+      for (const row of r.data){
+        let p; try { p = await dec(row.box, UKEY); } catch(_){ continue; }
+        const cur = byId(p.id); const m = cur ? mergePatients(cur, p) : p;
+        const old = await DB.get(m.id); await DB.put({ id: m.id, box: await enc(m), rev: null, dirty: true, lv: ((old && old.lv) || 0) + 1 }); setMem(m);
+      }
+      if (r.data.length < 500) break; from += 500;
+    }
+  },
+  async loadMembers(){
+    if (!this.eq) return;
+    const r = await this.rest('GET', `miembros?select=user_id,rol,activo,perfil&equipo_id=eq.${this.eq.id}`);
+    if (!r.ok) return;
+    const out = [];
+    for (const m of r.data){ let pf = null; try { pf = m.perfil ? await dec(m.perfil) : null; } catch(_){} out.push({ id: m.user_id, rol: m.rol, activo: m.activo, nombre: pf && pf.nombre || '', matricula: pf && pf.matricula || '' }); }
+    this.members = out; await DB.setMeta('miembros', out);
+    const me = out.find(x => x.id === this.sess.user_id);
+    if (me && !me.activo){ this.paused = 'baja'; throw new Error('Tu acceso al equipo fue dado de baja. Consultá con el administrador.'); }
+    if (me && this.eq.rol !== me.rol){ this.eq.rol = me.rol; await DB.setMeta('equipo', this.eq); }
+  },
+  async savePerfil(pf){
+    await DB.setMeta('perfil', pf);
+    if (!this.enabled() || !this.eq) return;
+    const r = await this.rest('PATCH', `miembros?equipo_id=eq.${this.eq.id}&user_id=eq.${this.sess.user_id}`, { perfil: await enc(pf) }, 'return=representation');
+    if (!r.ok) throw new Error('No se pudo guardar la firma en el servidor.');
+    await this.loadMembers();
+  },
+  async disconnect(){ this.reset(); for (const k of ['session','syncEmail','vaultAt','lastRev','equipo','miembros']) await DB.delMeta(k); this.email = ''; this.eq = null; this.members = []; this.setStatus('off'); },
   schedule(ms = 1500){ if (!this.enabled()) { this.countPending(); return; } clearTimeout(this.timer); this.timer = setTimeout(() => this.sync(), ms); },
   async countPending(){ try { this.pending = (await DB.all()).filter(r => r.dirty).length + (await DB.pendingFiles()).length; } catch(_){} this.render(); },
   setStatus(s, d = ''){ this.status = s; this.detail = d; this.render(); },
   render(){
     const b = $('#syncBtn'); if (!b) return;
-    const map = { off: ['✕', 'Sin sincronizar (sólo este dispositivo)'], ok: [ICON.check, 'Sincronizado'], syncing: ['⟳', 'Sincronizando…'], offline: [String(this.pending || '…'), 'Sin conexión: los cambios se guardan y se suben al volver internet'], error: ['⚠', 'Error de sincronización'], login: ['⚠', 'Hay que volver a conectar'] };
+    const map = { off: ['✕', 'Sin sincronizar (sólo este dispositivo)'], ok: [ICON.check, 'Sincronizado'], syncing: ['⟳', 'Sincronizando…'], offline: [String(this.pending || '…'), 'Sin conexión: los cambios se guardan y se suben al volver internet'], error: ['⚠', 'Error de sincronización'], login: ['⚠', this.paused === 'baja' ? 'Acceso al equipo dado de baja' : 'Hay que volver a conectar'] };
     let st = this.paused ? 'login' : this.status;
     if (st === 'ok' && this.pending) st = 'offline';
     const [t, title] = map[st] || map.off;
@@ -385,8 +510,10 @@ const Sync = {
       const v = await this.rest('GET', 'vault?select=updated_at');
       if (!v.ok) throw new Error('Error ' + v.status);
       if (v.data[0] && this.vaultAt && v.data[0].updated_at !== this.vaultAt){ this.paused = 'clave'; throw new Error('La clave maestra se cambió en otro dispositivo. Volvé a conectar con la clave nueva.'); }
+      if (!this.eq){ if (!UKEY) throw new Error('Volvé a desbloquear la app.'); await this.ensureTeam(null, null, true); }
       this.changed = false;
       if (!this.lastRev) await this.pull(0); else { await this.reconcileIfDue(); await this.pull(this.lastRev); }
+      if (!this.membersAt || Date.now() - this.membersAt > 5 * 60000){ this.membersAt = Date.now(); await this.loadMembers(); }
       const conflicts = await this.push();
       await this.uploadFiles();
       if (KEY !== keyAtStart) return;
@@ -396,6 +523,7 @@ const Sync = {
       if (conflicts) this.again = true;
     } catch(e){
       await this.countPending();
+      if (/permission denied|42501|row-level/i.test(e.message) || (/Error 40[13]/.test(e.message) && this.eq)){ this.paused = 'baja'; e = new Error('Tu acceso al equipo fue dado de baja o no tenés permiso.'); }
       this.setStatus(this.paused ? 'login' : (!navigator.onLine || /conexi/i.test(e.message) ? 'offline' : 'error'), e.message);
     } finally {
       this.busy = false;
@@ -405,7 +533,7 @@ const Sync = {
   async pull(after){
     let max = after;
     for (;;){
-      const r = await this.rest('GET', `records?select=id,box,rev&rev=gt.${max}&order=rev.asc&limit=200`);
+      const r = await this.rest('GET', `registros?select=id,box,rev&equipo_id=eq.${this.eq.id}&rev=gt.${max}&order=rev.asc&limit=200`);
       if (!r.ok) throw new Error('Error ' + r.status + ' al descargar');
       for (const row of r.data){ await this.applyRemote(row); if (row.rev > max) max = row.rev; }
       if (r.data.length < 200) break;
@@ -416,12 +544,12 @@ const Sync = {
   async reconcileIfDue(){
     if (this.lastReconcile && Date.now() - this.lastReconcile < 10 * 60000) return;
     const remote = []; let from = 0;
-    for (;;){ const r = await this.rest('GET', `records?select=id,rev&order=id.asc&offset=${from}&limit=1000`); if (!r.ok) return; remote.push(...r.data); if (r.data.length < 1000) break; from += 1000; }
+    for (;;){ const r = await this.rest('GET', `registros?select=id,rev&equipo_id=eq.${this.eq.id}&order=id.asc&offset=${from}&limit=1000`); if (!r.ok) return; remote.push(...r.data); if (r.data.length < 1000) break; from += 1000; }
     const local = new Map((await DB.all()).map(x => [x.id, x.rev]));
     const missing = remote.filter(x => local.get(x.id) !== x.rev).map(x => x.id);
     for (let i = 0; i < missing.length; i += 40){
       const ids = missing.slice(i, i + 40).map(id => '"' + id + '"').join(',');
-      const r = await this.rest('GET', `records?select=id,box,rev&id=in.(${encodeURIComponent(ids)})`);
+      const r = await this.rest('GET', `registros?select=id,box,rev&equipo_id=eq.${this.eq.id}&id=in.(${encodeURIComponent(ids)})`);
       if (r.ok) for (const row of r.data) await this.applyRemote(row);
     }
     this.lastReconcile = Date.now();
@@ -447,11 +575,11 @@ const Sync = {
     for (const rec of recs){
       let res;
       if (rec.rev){
-        res = await this.rest('PATCH', `records?id=eq.${encodeURIComponent(rec.id)}&rev=eq.${rec.rev}`, { box: rec.box }, 'return=representation');
+        res = await this.rest('PATCH', `registros?equipo_id=eq.${this.eq.id}&id=eq.${encodeURIComponent(rec.id)}&rev=eq.${rec.rev}`, { box: rec.box }, 'return=representation');
         if (res.ok && res.data && res.data.length){ await this.markClean(rec, res.data[0].rev); continue; }
         if (res.ok){ conflicts++; await this.refetch(rec.id); continue; }   // otro dispositivo lo modificó antes: combinar y reintentar
       } else {
-        res = await this.rest('POST', 'records', { id: rec.id, box: rec.box }, 'return=representation');
+        res = await this.rest('POST', 'registros', { equipo_id: this.eq.id, id: rec.id, box: rec.box }, 'return=representation');
         if (res.ok && res.data && res.data.length){ await this.markClean(rec, res.data[0].rev); continue; }
         if (res.status === 409){ conflicts++; await this.refetch(rec.id); continue; }
       }
@@ -459,7 +587,7 @@ const Sync = {
     }
     return conflicts;
   },
-  storagePath(id, n){ return `adjuntos/${this.sess.user_id}/${id}.${n}`; },
+  storagePath(id, n, dir){ return `adjuntos/${dir || this.sess.user_id}/${id}.${n}`; },
   async uploadFiles(){
     if (!this.sess.user_id) return;
     const ids = await DB.pendingFiles();
@@ -477,33 +605,33 @@ const Sync = {
   async downloadFile(a, onProgress){
     if (!navigator.onLine) throw new Error('Sin conexión: este estudio todavía no se descargó en este dispositivo.');
     const chunks = [];
+    const dirs = [...new Set([a.dir, this.sess.user_id, ...this.members.map(m => m.id)].filter(Boolean))];
+    let dir = null;
     for (let n = 0; n < a.nchunks; n++){
       onProgress && onProgress(Math.round(n / a.nchunks * 100));
-      let r; try { r = await fetch(this.cfg.url + '/storage/v1/object/authenticated/' + this.storagePath(a.id, n), { headers: { apikey: this.cfg.anon, Authorization: 'Bearer ' + await this.token() } }); }
-      catch(_){ throw new Error('Sin conexión'); }
-      if (!r.ok) throw new Error(r.status === 400 || r.status === 404 ? 'El estudio todavía no terminó de subirse desde el otro dispositivo.' : 'Error ' + r.status + ' al descargar el estudio');
+      let r = null;
+      for (const d of (dir ? [dir] : dirs)){
+        try { r = await fetch(this.cfg.url + '/storage/v1/object/authenticated/' + this.storagePath(a.id, n, d), { headers: { apikey: this.cfg.anon, Authorization: 'Bearer ' + await this.token() } }); }
+        catch(_){ throw new Error('Sin conexión'); }
+        if (r.ok){ dir = d; break; }
+      }
+      if (!r || !r.ok) throw new Error(r && (r.status === 400 || r.status === 404) ? 'El estudio todavía no terminó de subirse desde el otro dispositivo.' : 'Error ' + (r && r.status) + ' al descargar el estudio');
       chunks.push(await r.arrayBuffer());
     }
     const rec = { id: a.id, chunks }; await DB.putFile(rec); return rec;
   },
-  async refetch(id){ const r = await this.rest('GET', `records?select=id,box,rev&id=eq.${encodeURIComponent(id)}`); if (r.ok && r.data[0]) await this.applyRemote(r.data[0]); },
+  async refetch(id){ const r = await this.rest('GET', `registros?select=id,box,rev&equipo_id=eq.${this.eq.id}&id=eq.${encodeURIComponent(id)}`); if (r.ok && r.data[0]) await this.applyRemote(r.data[0]); },
   async markClean(rec, rev){ const cur = await DB.get(rec.id); if (!cur) return; cur.rev = rev; if (cur.lv === rec.lv) cur.dirty = false; await DB.put(cur); },
-  /* Cambio de clave maestra con la cuenta conectada */
+  /* Cambio de clave maestra con la cuenta conectada: sólo se re-cifra la copia de la clave de datos */
   async changePassword(oldPass, newPass){
     const r0 = await this.rest('GET', 'vault?select=updated_at'); if (!r0.ok) throw new Error('Necesitás conexión a internet para cambiar la clave.');
-    const salt = crypto.getRandomValues(new Uint8Array(16)); const nk = await deriveKey(newPass, salt);
-    const verifier = await enc(VERIF, nk);
-    // 1) contraseña de acceso
+    const sb = crypto.getRandomValues(new Uint8Array(16)), nk = await deriveKey(newPass, sb), verifier = await enc(VERIF, nk), clave = await wrapDK(DKRAW, nk);
     await this.auth('user', { password: await deriveAuth(newPass, this.email) }, 'PUT', await this.token());
-    // 2) re-cifrar todo localmente y marcar para subir
-    const recs = []; for (const p of App.patients){ const old = await DB.get(p.id); recs.push({ id: p.id, box: await enc(p, nk), rev: old && old.rev || null, dirty: true, lv: ((old && old.lv) || 0) + 1 }); }
-    await DB.putMany(recs);
-    // 3) bóveda del servidor
-    const uidq = this.sess.user_id ? `user_id=eq.${this.sess.user_id}` : 'salt=neq.x';
-    const r = await this.rest('PATCH', 'vault?' + uidq, { salt: b64(salt), verifier }, 'return=representation');
+    if (this.eq){ const m = await this.rest('PATCH', `miembros?equipo_id=eq.${this.eq.id}&user_id=eq.${this.sess.user_id}`, { clave }, 'return=representation'); if (!m.ok || !m.data.length) throw new Error('No se pudo actualizar tu clave en el equipo.'); }
+    const r = await this.rest('PATCH', `vault?user_id=eq.${this.sess.user_id}`, { salt: b64(sb), verifier }, 'return=representation');
     if (!r.ok || !r.data.length) throw new Error('No se pudo actualizar la clave en el servidor.');
-    KEY = nk; this.vaultAt = r.data[0].updated_at;
-    await DB.setMeta('salt', b64(salt)); await DB.setMeta('verifier', verifier); await DB.setMeta('vaultAt', this.vaultAt);
+    UKEY = nk; this.vaultAt = r.data[0].updated_at;
+    await DB.setMeta('salt', b64(sb)); await DB.setMeta('verifier', verifier); await DB.setMeta('dk', clave); await DB.setMeta('vaultAt', this.vaultAt);
     await this.saveSess();
     await this.sync();
   }
@@ -521,6 +649,8 @@ function refreshView(){
 /* ===================== Pantallas de inicio y bloqueo ===================== */
 async function boot(){
   applyBrand();
+  const hm = location.hash.match(/invitacion=([A-Za-z0-9_-]{40,})/);
+  if (hm){ App.pendingInvite = 'MANO-' + hm[1]; try { history.replaceState(null, '', location.pathname + location.search); } catch(_){} }
   if (!window.crypto || !crypto.subtle || !window.indexedDB){
     $('#app').innerHTML = `<div class="lock"><div class="card"><h1>Navegador no compatible</h1><p>Abrí esta app con Chrome, Edge, Safari o Firefox actualizados (desde una dirección https).</p></div></div>`; return;
   }
@@ -539,23 +669,37 @@ function cfgFieldsHTML(){
 function readCfg(){ const url = ($('#cfgUrl').value || '').trim().replace(/\/+$/, '').replace(/\/(rest|auth|storage)\/v1$/i, '').replace(/\/+$/, ''), anon = ($('#cfgAnon').value || '').trim(); return url && anon ? { url, anon } : null; }
 function syncFormHTML(mode, { askConfirm = true, emailVal = '' } = {}){
   return `${cfgFieldsHTML()}
-    <div class="row" style="margin-bottom:12px"><label class="pillopt"><input type="radio" name="smode" value="login" ${mode==='login'?'checked':''}> Ya tengo cuenta</label><label class="pillopt"><input type="radio" name="smode" value="signup" ${mode==='signup'?'checked':''}> Crear cuenta</label></div>
+    <div class="row" style="margin-bottom:12px"><label class="pillopt"><input type="radio" name="smode" value="login" ${mode==='login'?'checked':''}> Ya tengo cuenta</label><label class="pillopt"><input type="radio" name="smode" value="signup" ${mode==='signup'?'checked':''}> Crear cuenta</label><label class="pillopt"><input type="radio" name="smode" value="invite" ${mode==='invite'?'checked':''}> Tengo una invitación</label></div>
+    <div id="sInvW" class="${mode==='invite' ? '' : 'hidden'}">
+      <div class="alert info">Te invitaron a un equipo: vas a ver los mismos pacientes, con <b>tu propio usuario y tu propia clave</b>. Tus evoluciones quedan firmadas con tu nombre.</div>
+      <label class="f"><span>Código de invitación</span><input class="i" id="sCode" value="${esc(App.pendingInvite || '')}" placeholder="MANO-…" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <div class="grid2"><label class="f"><span>Tu nombre para la firma</span><input class="i" id="sNom" placeholder="Dr. Nombre Apellido"></label><label class="f"><span>Matrícula</span><input class="i" id="sMat" placeholder="MP 0000"></label></div>
+    </div>
     <label class="f"><span>Email</span><input class="i" type="email" id="sEmail" autocomplete="username" required value="${esc(emailVal)}"></label>
     <label class="f"><span>Clave maestra${askConfirm ? ' (mínimo 8 caracteres)' : ''}</span><input class="i" type="password" id="sPass" autocomplete="current-password" required></label>
-    <label class="f ${mode==='signup' && askConfirm ? '' : 'hidden'}" id="sPass2W"><span>Repetir clave maestra</span><input class="i" type="password" id="sPass2" autocomplete="new-password"></label>
+    <label class="f ${(mode==='signup' || mode==='invite') && askConfirm ? '' : 'hidden'}" id="sPass2W"><span>Repetir clave maestra</span><input class="i" type="password" id="sPass2" autocomplete="new-password"></label>
     <div id="sErr" class="alert danger hidden"></div>`;
 }
 function wireSyncForm(askConfirm = true){
-  document.querySelectorAll('input[name=smode]').forEach(r => r.onchange = () => $('#sPass2W').classList.toggle('hidden', !(r.value === 'signup' && r.checked && askConfirm)));
+  document.querySelectorAll('input[name=smode]').forEach(r => r.onchange = () => { if (!r.checked) return;
+    $('#sPass2W').classList.toggle('hidden', !((r.value === 'signup' || r.value === 'invite') && askConfirm)); $('#sInvW').classList.toggle('hidden', r.value !== 'invite'); });
 }
 async function runSyncForm(btn, askConfirm = true){
   const err = $('#sErr'); const fail = m => { err.textContent = m; err.classList.remove('hidden'); btn.disabled = false; btn.textContent = btn.dataset.label; };
   const mode = $('input[name=smode]:checked').value, email = $('#sEmail').value.trim(), pass = $('#sPass').value;
   const cfg = readCfg(); if (!cfg) return fail('Completá la dirección y la clave pública del servidor.');
   if (!/^\S+@\S+\.\S+$/.test(email)) return fail('Escribí un email válido.');
-  if (mode === 'signup' && askConfirm){ if (pass.length < 8) return fail('La clave debe tener al menos 8 caracteres.'); if (pass !== $('#sPass2').value) return fail('Las claves no coinciden.'); }
+  if ((mode === 'signup' || mode === 'invite') && askConfirm){ if (pass.length < 8) return fail('La clave debe tener al menos 8 caracteres.'); if (pass !== $('#sPass2').value) return fail('Las claves no coinciden.'); }
+  const extra = {};
+  if (mode === 'invite'){
+    const code = $('#sCode').value.trim(), nom = $('#sNom').value.trim();
+    if (!code) return fail('Pegá el código de invitación que te mandaron.');
+    try { parseInviteCode(code); } catch(e){ return fail(e.message); }
+    if (!nom) return fail('Escribí tu nombre como querés que aparezca en la firma.');
+    extra.invite = code; extra.perfil = { nombre: nom, matricula: $('#sMat').value.trim() };
+  }
   btn.dataset.label = btn.textContent; btn.disabled = true; btn.textContent = 'Conectando…';
-  try { await Sync.connect(email, pass, mode, cfg); return true; } catch(e){ fail(e.message); return false; }
+  try { await Sync.connect(email, pass, mode, cfg, extra); App.pendingInvite = ''; return true; } catch(e){ fail(e.message); return false; }
 }
 function showSetup(){
   lockShell(`<h1>Bienvenido</h1>
@@ -565,7 +709,7 @@ function showSetup(){
     $('#tabSync').classList.add('pri'); $('#tabLocal').classList.remove('pri');
     $('#setupBody').innerHTML = `<p class="sub" style="margin-top:0">Usá el mismo email y la misma clave maestra en la computadora del consultorio, el celular y la tablet: los pacientes aparecen en todos.</p>
       <div class="alert warn">Si olvidás la clave maestra <b>no hay forma de recuperar los datos</b>: el servidor sólo guarda información cifrada. Anotala en un lugar seguro.</div>
-      <form id="sf">${syncFormHTML('login')}<button class="btn pri" style="width:100%">Conectar</button></form>`;
+      <form id="sf">${syncFormHTML(App.pendingInvite ? 'invite' : 'login')}<button class="btn pri" style="width:100%">Conectar</button></form>`;
     wireSyncForm();
     $('#sf').onsubmit = async e => { e.preventDefault(); const ok = await runSyncForm(e.submitter || $('#sf button.pri')); if (ok){ await loadPatients(); startApp(); } };
   };
@@ -582,8 +726,8 @@ function showSetup(){
       if (a.length < 8){ err.textContent='La clave debe tener al menos 8 caracteres.'; err.classList.remove('hidden'); return; }
       if (a !== b){ err.textContent='Las claves no coinciden.'; err.classList.remove('hidden'); return; }
       const salt = crypto.getRandomValues(new Uint8Array(16));
-      KEY = await deriveKey(a, salt);
-      await DB.setMeta('salt', b64(salt)); await DB.setMeta('verifier', await enc(VERIF));
+      UKEY = await deriveKey(a, salt); const raw = newRawKey(); await setDataKey(raw);
+      await DB.setMeta('salt', b64(salt)); await DB.setMeta('verifier', await enc(VERIF, UKEY)); await DB.setMeta('dk', await wrapDK(raw, UKEY));
       App.patients = []; startApp(); };
   };
   $('#tabSync').onclick = sync; $('#tabLocal').onclick = local;
@@ -603,8 +747,10 @@ function showUnlock(msg){
   $('#unF').onsubmit = async e => { e.preventDefault();
     $('#unB').disabled = true; $('#unB').textContent = 'Abriendo…';
     const key = await checkPass($('#pw').value, await DB.getMeta('salt'), await DB.getMeta('verifier'));
-    if (!key){ $('#err').classList.remove('hidden'); $('#unB').disabled=false; $('#unB').textContent='Desbloquear'; $('#pw').select(); return; }
-    KEY = key; await loadPatients(); startApp();
+    if (!key){ $('#err').textContent = 'Clave incorrecta.'; $('#err').classList.remove('hidden'); $('#unB').disabled=false; $('#unB').textContent='Desbloquear'; $('#pw').select(); return; }
+    UKEY = key;
+    try { await openDataKey(); } catch(_){ $('#err').textContent = 'No se pudieron abrir los datos de este dispositivo.'; $('#err').classList.remove('hidden'); $('#unB').disabled = false; $('#unB').textContent = 'Desbloquear'; return; }
+    await loadPatients(); startApp();
   };
 }
 async function persistDrafts(){
@@ -617,7 +763,7 @@ async function lock(msg){
   Dict.stop();
   try { await persistDrafts(); } catch(_){}
   Sync.reset();
-  KEY = null; App.patients = []; App.drafts = {}; App.current = null; App.view = 'home';
+  KEY = null; UKEY = null; DKRAW = null; App.patients = []; App.drafts = {}; App.current = null; App.view = 'home';
   closeModal(); showUnlock(msg);
 }
 
@@ -636,6 +782,7 @@ async function startApp(){
   </header>
   <div id="menu" class="menu hidden">
     <button data-act="sync">🌐 Sincronización entre dispositivos</button>
+    <button data-act="equipo">👥 Equipo y firma</button>
     <button data-act="export">💾 Descargar respaldo cifrado</button>
     <button data-act="import">📂 Restaurar / importar respaldo</button>
     <button data-act="chpass">🔑 Cambiar clave maestra</button>
@@ -650,7 +797,9 @@ async function startApp(){
   await Sync.load();
   Sync.countPending();
   Sync.lastReconcile = 0;
-  Sync.sync();
+  await Sync.sync();
+  if (App.pendingInvite && Sync.eq) { App.pendingInvite = ''; toast('Este dispositivo ya está conectado a un equipo.'); }
+  if (!(await DB.getMeta('perfil')) && KEY && !$('#ov')) perfilModal(true);
 }
 function syncPanel(){
   if (!Sync.sess || Sync.paused){
@@ -721,9 +870,9 @@ function patientLi(p, extra=''){
     <div class="sub">${[p.dni ? 'DNI ' + esc(fmtDNI(p.dni)) : '', esc(p.obraSocial), edad(p.nacimiento) || edadAprox(p), le ? 'Últ. evol. ' + fmtDT(le).slice(0,10) : 'Sin evoluciones'].filter(Boolean).join(' · ')}</div></div>${extra}</li>`;
 }
 function turnoLi(t, p){
-  const cls = t.estado === 'atendido' ? 'ok' : t.estado === 'ausente' ? 'danger' : 'warn';
-  return `<li data-pid="${p.id}"><div class="hora">${esc(t.hora || '--:--')}</div><div class="grow"><div class="name">${esc(fullName(p))}</div>
-    <div class="sub">${[esc(t.motivo), esc(p.obraSocial), esc(t.nota)].filter(Boolean).join(' · ') || '&nbsp;'}</div></div><span class="pill ${cls}">${esc(t.estado || 'pendiente')}</span></li>`;
+  const st = estadoTurno(t, p);
+  return `<li data-pid="${p.id}" class="tl-${st}"><span class="luz ${st}" title="${st === 'atendido' ? 'Atendido' : 'En espera'}"></span><div class="hora">${esc(t.hora || '--:--')}</div><div class="grow"><div class="name">${esc(fullName(p))}</div>
+    <div class="sub">${[esc(t.motivo), esc(p.obraSocial), esc(t.nota)].filter(Boolean).join(' · ') || '&nbsp;'}</div></div>${estadoBtn(t, p)}</li>`;
 }
 function turnosDe(fecha){
   const out = [];
@@ -737,7 +886,7 @@ function renderResults(){
     const hoy = turnosDe(isoDate(new Date()));
     const rec = [...App.patients].sort((a,b) => (b.actualizado||0)-(a.actualizado||0)).slice(0, 12);
     box.innerHTML = `
-    <div class="card"><div class="row" style="margin-bottom:6px"><h2 class="grow" style="margin:0">Turnos de hoy · ${diaSemana(isoDate(new Date()))} ${fmtDate(isoDate(new Date()))}</h2><button class="btn sm" data-act="lista">📋 Cargar lista del día</button></div>
+    <div class="card"><div class="row" style="margin-bottom:6px"><h2 class="grow" style="margin:0">Turnos de hoy · ${diaSemana(isoDate(new Date()))} ${fmtDate(isoDate(new Date()))}${conteoTurnos(hoy)}</h2><button class="btn sm" data-act="lista">📋 Cargar lista del día</button></div>
       ${hoy.length ? `<ul class="list">${hoy.map(([t,p]) => turnoLi(t,p)).join('')}</ul>` : `<div class="empty"><img src="${LOGOS.isotipoGris}" alt="">No hay turnos cargados para hoy.<br><button class="btn sm" data-act="wa" style="margin-top:8px">💬 Cargar turno desde WhatsApp</button></div>`}
     </div>
     <div class="card"><h2>Pacientes recientes (${App.patients.length} en total)</h2>
@@ -782,12 +931,12 @@ function renderPatient(){
       <button class="btn pri" data-act="saveevo">${ICON.checkW} Guardar evolución</button></div>
   </div>
   <div class="card"><h2>Evoluciones (${evos.length})</h2>
-    ${evos.length ? evos.map(e => `<div class="evo"><div class="meta"><b>${fmtDT(e.fecha)}</b>${e.ediciones && e.ediciones.length ? `<span class="pill warn">editada ${fmtDT(e.editado)}</span>` : ''}<span class="grow"></span><button class="btn sm" data-act="editevo" data-eid="${e.id}">Corregir</button></div><div class="txt">${esc(e.texto)}</div></div>`).join('') : `<div class="empty"><img src="${LOGOS.isotipoGris}" alt="">Sin evoluciones todavía.</div>`}
+    ${evos.length ? evos.map(e => `<div class="evo"><div class="meta"><b>${fmtDT(e.fecha)}</b>${firmaHTML(e.autor)}${e.ediciones && e.ediciones.length ? `<span class="pill warn">editada ${fmtDT(e.editado)}</span>` : ''}<span class="grow"></span>${puedeCorregir(e) ? `<button class="btn sm" data-act="editevo" data-eid="${e.id}">Corregir</button>` : ''}</div><div class="txt">${esc(e.texto)}</div></div>`).join('') : `<div class="empty"><img src="${LOGOS.isotipoGris}" alt="">Sin evoluciones todavía.</div>`}
   </div>
   ${adjCardHTML(p)}
   <div class="card"><h2>Turnos</h2>
     ${turnos.length ? `<ul class="list">${turnos.map(t => `<li style="cursor:default"><div class="grow"><div class="name">${diaSemana(t.fecha)} ${fmtDate(t.fecha)} ${esc(t.hora||'')}</div><div class="sub">${esc(t.motivo||'')}</div></div>
-      <select class="i" style="width:auto" data-act="estado" data-tid="${t.id}">${['pendiente','atendido','ausente','cancelado'].map(s => `<option ${t.estado===s?'selected':''}>${s}</option>`).join('')}</select></li>`).join('')}</ul>` : `<div class="empty"><img src="${LOGOS.isotipoGris}" alt="">Sin turnos.</div>`}
+      ${estadoBtn(t, p)}</li>`).join('')}</ul>` : `<div class="empty"><img src="${LOGOS.isotipoGris}" alt="">Sin turnos.</div>`}
   </div>`;
   $('#evoText').oninput = e => { App.drafts[p.id] = e.target.value; };
 }
@@ -797,15 +946,15 @@ async function saveEvo(){
   Dict.stop();
   const txt = ta.value.trim(); if (!txt) return toast('La evolución está vacía.');
   p.evoluciones = p.evoluciones || [];
-  p.evoluciones.push({ id: uid(), fecha: Date.now(), texto: txt });
-  // Si hay turno de hoy pendiente, marcarlo como atendido
-  const hoy = (p.turnos||[]).find(t => t.fecha === isoDate(new Date()) && (!t.estado || t.estado === 'pendiente'));
-  if (hoy) hoy.estado = 'atendido';
+  const pf = await DB.getMeta('perfil');
+  if (!pf){ perfilModal(false, () => saveEvo()); return; }
+  p.evoluciones.push({ id: uid(), fecha: Date.now(), texto: txt, autor: firmaActual(pf) });
   delete App.drafts[p.id]; p.borrador = '';
   await savePatient(p); toast('Evolución guardada', true); renderPatient();
 }
 function editEvo(eid){
   const p = byId(App.current); const e = p.evoluciones.find(x => x.id === eid);
+  if (!puedeCorregir(e)) return toast(`Sólo ${(e.autor && e.autor.n) || 'quien la escribió'} puede corregir esta evolución.`);
   openModal('Corregir evolución', `
     <div class="alert info">Por seguridad médico-legal las evoluciones no se borran: la versión anterior queda registrada.</div>
     <div class="row" style="align-items:flex-start"><div class="grow"><textarea class="i" id="evoEdit" style="min-height:200px">${esc(e.texto)}</textarea><div class="interim" id="interim-evoEdit"></div></div>
@@ -815,7 +964,7 @@ function editEvo(eid){
   $('#evoEditOk').onclick = async () => {
     Dict.stop();
     const nt = $('#evoEdit').value.trim(); if (!nt || nt === e.texto) return closeModal();
-    e.ediciones = e.ediciones || []; e.ediciones.push({ texto: e.texto, hasta: Date.now() });
+    e.ediciones = e.ediciones || []; e.ediciones.push({ texto: e.texto, hasta: Date.now(), autor: e.autor || null, corrigio: firmaActual(await DB.getMeta('perfil')) });
     e.texto = nt; e.editado = Date.now();
     await savePatient(p); closeModal(); renderPatient(); toast('Corrección guardada');
   };
@@ -855,7 +1004,7 @@ function turnoForm(p, t = {}){
     <label class="f"><span>Motivo</span><input class="i" id="t_motivo" value="${esc(t.motivo||'')}"></label>
     <div class="actions"><button type="button" class="btn" data-act="close">Cancelar</button><button class="btn pri">Guardar turno</button></div></form>`);
   $('#tf').onsubmit = async e => { e.preventDefault();
-    p.turnos = p.turnos || []; p.turnos.push({ id: uid(), fecha: $('#t_fecha').value, hora: $('#t_hora').value, motivo: $('#t_motivo').value.trim(), estado: 'pendiente' });
+    p.turnos = p.turnos || []; p.turnos.push({ id: uid(), fecha: $('#t_fecha').value, hora: $('#t_hora').value, motivo: $('#t_motivo').value.trim(), estado: 'espera' });
     await savePatient(p); closeModal(); renderPatient(); toast('Turno guardado'); };
 }
 function renderTurnos(){
@@ -866,7 +1015,7 @@ function renderTurnos(){
   <div class="card"><div class="row"><button class="btn sm" data-act="tday" data-d="${shift(-1)}">◀</button>
     <input class="i grow" type="date" id="tDate" value="${f}" style="text-align:center"><button class="btn sm" data-act="tday" data-d="${shift(1)}">▶</button>
     <button class="btn sm" data-act="tday" data-d="${isoDate(new Date())}">Hoy</button><button class="btn sm" data-act="lista">📋 Cargar lista</button></div></div>
-  <div class="card"><h2>${diaSemana(f)} ${fmtDate(f)} · ${list.length} turno${list.length===1?'':'s'}</h2>
+  <div class="card"><h2>${diaSemana(f)} ${fmtDate(f)} · ${list.length} turno${list.length===1?'':'s'}${conteoTurnos(list)}</h2>
   ${list.length ? `<ul class="list">${list.map(([t,p]) => turnoLi(t,p)).join('')}</ul>` : `<div class="empty"><img src="${LOGOS.isotipoGris}" alt="">Sin turnos este día.</div>`}</div>`;
   $('#tDate').onchange = e => { App.turnosDate = e.target.value || isoDate(new Date()); renderTurnos(); };
 }
@@ -1046,7 +1195,7 @@ function showWaForm(d, text = ''){
     const upd = { apellido: titleCase(v('apellido')), nombre: titleCase(v('nombre')), dni: digits(v('dni')), telefono: v('telefono'), obraSocial: v('obraSocial'), nroAfiliado: v('nroAfiliado') };
     for (const [k, val] of Object.entries(upd)) if (val && !p[k]) p[k] = val;  // completa datos faltantes sin pisar los existentes
     const fecha = v('fecha'), hora = v('hora'), motivo = v('motivo');
-    if (fecha){ p.turnos = p.turnos || []; p.turnos.push({ id: uid(), fecha, hora, motivo, estado: 'pendiente', origen: 'whatsapp' }); }
+    if (fecha){ p.turnos = p.turnos || []; p.turnos.push({ id: uid(), fecha, hora, motivo, estado: 'espera', origen: 'whatsapp' }); }
     await savePatient(p); closeModal();
     toast(fecha ? `Turno guardado: ${fmtDate(fecha)} ${hora}` : 'Paciente guardado');
     go('patient', p.id);
@@ -1474,7 +1623,7 @@ async function addFiles(files, mode){
     const { k, raw } = await newFileKey(); const chunks = await encFile(it.buf, k); const id = uid();
     await DB.putFile({ id, chunks, pend: 1 });
     const fecha = it.dicom && it.dicom.fechaISO ? it.dicom.fechaISO : isoDate(new Date());
-    p.adjuntos.push({ id, nombre: it.nombre, desc: it.dicom ? [it.dicom.modalidad, it.dicom.estudio || it.dicom.serie].filter(Boolean).join(' · ') : '', tipo: it.tipo, mime: it.mime, size: it.buf.byteLength, nchunks: chunks.length, k: raw, fecha, agregado: Date.now(), thumb: it.thumb || '', dicom: it.dicom || null });
+    p.adjuntos.push({ id, dir: (Sync.sess && Sync.sess.user_id) || null, nombre: it.nombre, desc: it.dicom ? [it.dicom.modalidad, it.dicom.estudio || it.dicom.serie].filter(Boolean).join(' · ') : '', tipo: it.tipo, mime: it.mime, size: it.buf.byteLength, nchunks: chunks.length, k: raw, fecha, agregado: Date.now(), thumb: it.thumb || '', dicom: it.dicom || null });
     if (it.dicom && it.dicom.paciente && !nameMatches(p, it.dicom.paciente)) warn.push(`${it.nombre}: el estudio dice “${it.dicom.paciente}”`);
   }
   await savePatient(p); status(''); renderPatient();
@@ -1706,13 +1855,102 @@ function showLista(res, text){
       if (!p.nacimiento && r.edad) p.edadAprox = { edad: +r.edad, al: f };
       p.turnos = p.turnos || [];
       const t = p.turnos.find(t => t.fecha === f && (t.hora || '') === (r.hora || ''));
-      if (t){ if (r.estado === 'atendido' && t.estado === 'pendiente') t.estado = 'atendido'; if (r.nota && !t.nota) t.nota = r.nota; }
-      else { p.turnos.push({ id: uid(), fecha: f, hora: r.hora, motivo: '', nota: r.nota, estado: r.estado, origen: 'lista' }); turnos++; }
+      if (t){ if (r.nota && !t.nota) t.nota = r.nota; }
+      else { p.turnos.push({ id: uid(), fecha: f, hora: r.hora, motivo: '', nota: r.nota, estado: 'espera', origen: 'lista' }); turnos++; }   // el estado lo da la evolución
       await savePatient(p);
     }
     closeModal(); toast(`Listo: ${turnos} turnos cargados · ${nuevos} pacientes nuevos`, true);
     App.turnosDate = f; if (App.view === 'turnos') renderTurnos(); else go('home');
   };
+}
+
+/* ===================== Estado de turnos (En espera / Atendido) ===================== */
+// Un turno pasa a "Atendido" solo cuando el paciente tiene una evolución ese día (o si se marca a mano).
+const evolDelDia = (p, f) => (p.evoluciones || []).some(e => isoDate(new Date(e.fecha)) === f);
+function estadoTurno(t, p){ if (t.manual) return t.estado === 'atendido' ? 'atendido' : 'espera'; return (t.estado === 'atendido' || evolDelDia(p, t.fecha)) ? 'atendido' : 'espera'; }
+function estadoBtn(t, p){ const st = estadoTurno(t, p);
+  return `<button class="pill estado ${st === 'atendido' ? 'ok' : 'warn'}" data-act="tog-estado" data-pid="${p.id}" data-tid="${t.id}" title="Tocar para cambiar">${st === 'atendido' ? '✓ Atendido' : '● En espera'}</button>`; }
+function conteoTurnos(list){ if (!list.length) return ''; const at = list.filter(([t, p]) => estadoTurno(t, p) === 'atendido').length;
+  return ` <span class="conteo"><span class="luz espera"></span>${list.length - at} en espera <span class="luz atendido"></span>${at} atendido${at === 1 ? '' : 's'}</span>`; }
+async function togEstado(pid, tid){
+  const p = byId(pid), t = p && (p.turnos || []).find(x => x.id === tid); if (!t) return;
+  const st = estadoTurno(t, p); t.manual = true; t.estado = st === 'atendido' ? 'espera' : 'atendido';
+  await savePatient(p);
+  if (App.view === 'patient') renderPatient(); else if (App.view === 'turnos') renderTurnos(); else renderResults();
+}
+
+/* ===================== Firma y equipo ===================== */
+function firmaActual(pf){ pf = pf || {}; return { id: Sync.myId(), n: pf.nombre || '', m: pf.matricula || '' }; }
+function firmaHTML(a){ return a && a.n ? `<span class="firma">✍️ ${esc(a.n)}${a.m ? ' · ' + esc(a.m) : ''}</span>` : ''; }
+// Sólo quien escribió la evolución puede corregirla (las de antes de las firmas, cualquiera)
+function puedeCorregir(e){ if (!e.autor || !e.autor.id) return !Sync.eq || Sync.eq.rol === 'admin';   // las de antes de las firmas: el administrador
+  return e.autor.id === Sync.myId() || (e.autor.id === 'local' && (!Sync.eq || Sync.eq.rol === 'admin')); }
+function perfilModal(primeraVez, despues){
+  DB.getMeta('perfil').then(pf => {
+    pf = pf || {};
+    openModal('✍️ Tu firma', `${primeraVez ? '<p class="sub" style="margin-top:0">Las evoluciones ahora salen firmadas por quien las escribe. Indicá cómo querés que aparezca tu firma.</p>' : ''}
+      <form id="pfF"><div class="grid2"><label class="f"><span>Nombre para la firma</span><input class="i" id="pfN" value="${esc(pf.nombre || '')}" placeholder="Dr. Nombre Apellido" required></label>
+      <label class="f"><span>Matrícula</span><input class="i" id="pfM" value="${esc(pf.matricula || '')}" placeholder="MP 0000"></label></div>
+      <div id="pfE" class="alert danger hidden"></div>
+      <div class="actions"><button type="button" class="btn" data-act="close">${primeraVez ? 'Más tarde' : 'Cancelar'}</button><button class="btn pri" id="pfOk">Guardar firma</button></div></form>`);
+    $('#pfN').focus();
+    $('#pfF').onsubmit = async ev => { ev.preventDefault(); const n = $('#pfN').value.trim(); if (!n) return;
+      try { await Sync.savePerfil({ nombre: n, matricula: $('#pfM').value.trim() }); }
+      catch(e){ $('#pfE').textContent = e.message + ' Se guardó en este dispositivo; se reintenta al sincronizar.'; $('#pfE').classList.remove('hidden'); await DB.setMeta('perfil', { nombre: n, matricula: $('#pfM').value.trim() }); return; }
+      closeModal(); toast('Firma guardada', true); if (despues) despues(); else if (App.view === 'patient') renderPatient(); };
+  });
+}
+async function teamPanel(){
+  const pf = (await DB.getMeta('perfil')) || {};
+  const conectado = Sync.enabled() && Sync.eq;
+  if (conectado){ try { await Sync.loadMembers(); } catch(_){} }
+  const admin = conectado && Sync.eq.rol === 'admin';
+  let invs = [];
+  if (admin){ const r = await Sync.rest('GET', `invitaciones?select=id,creada,expira,usada&equipo_id=eq.${Sync.eq.id}&order=creada.desc`).catch(() => null); if (r && r.ok) invs = r.data.filter(i => !i.usada && new Date(i.expira) > new Date()); }
+  const yo = Sync.myId();
+  openModal('👥 Equipo y firma', `
+    <h4 style="margin:0 0 6px">Tu firma</h4>
+    <div class="row" style="margin-bottom:14px"><div class="grow">${pf.nombre ? `<b>${esc(pf.nombre)}</b>${pf.matricula ? ' · ' + esc(pf.matricula) : ''}` : '<span class="sub">Sin configurar</span>'}</div><button class="btn sm" id="tmFirma">✏️ Editar</button></div>
+    ${!conectado ? `<div class="alert info">Para trabajar en equipo con un colega, primero activá la <b>sincronización</b> (🌐) en este dispositivo.</div>` : `
+    <h4 style="margin:0 0 6px">Integrantes</h4>
+    <ul class="list" style="margin-bottom:12px">${Sync.members.map(m => `<li style="cursor:default"><div class="avatar">${esc((m.nombre || '?').replace(/^(dra?\.?\s+)/i, '').slice(0, 1).toUpperCase())}</div>
+      <div class="grow"><div class="name">${esc(m.nombre || '(sin firma configurada)')}${m.id === yo ? ' <span class="pill">vos</span>' : ''}</div>
+      <div class="sub">${[m.matricula, m.rol === 'admin' ? 'administrador' : 'médico', m.activo ? '' : 'sin acceso'].filter(Boolean).map(esc).join(' · ')}</div></div>
+      ${admin && m.id !== yo ? (m.activo ? `<button class="btn sm danger" data-baja="${m.id}">Quitar acceso</button>` : `<button class="btn sm" data-alta="${m.id}">Devolver acceso</button>`) : ''}</li>`).join('')}</ul>
+    ${admin ? `<button class="btn pri" id="tmInv">＋ Invitar a un colega</button>
+      ${invs.length ? `<div class="sub" style="margin-top:10px">Invitaciones pendientes:</div><ul class="list">${invs.map(i => `<li style="cursor:default"><div class="grow sub">Creada ${fmtDT(new Date(i.creada).getTime())} · vence ${fmtDate(i.expira.slice(0, 10))}</div><button class="btn sm danger" data-anular="${i.id}">Anular</button></li>`).join('')}</ul>` : ''}`
+    : '<p class="sub">Sólo el administrador del equipo puede invitar colegas.</p>'}`}
+    <div class="actions"><button class="btn" data-act="close">Cerrar</button></div>`);
+  $('#tmFirma').onclick = () => perfilModal(false, teamPanel);
+  if ($('#tmInv')) $('#tmInv').onclick = crearInvitacion;
+  document.querySelectorAll('[data-baja],[data-alta]').forEach(b => b.onclick = async () => {
+    const id = b.dataset.baja || b.dataset.alta, baja = !!b.dataset.baja;
+    if (baja && !confirm('¿Quitarle el acceso al equipo? Deja de poder ver y sincronizar los pacientes.')) return;
+    const r = await Sync.rest('PATCH', `miembros?equipo_id=eq.${Sync.eq.id}&user_id=eq.${id}`, { activo: !baja }, 'return=representation');
+    toast(r.ok && r.data.length ? (baja ? 'Acceso quitado' : 'Acceso devuelto') : 'No se pudo cambiar el acceso'); teamPanel(); });
+  document.querySelectorAll('[data-anular]').forEach(b => b.onclick = async () => { await Sync.rest('DELETE', `invitaciones?id=eq.${b.dataset.anular}`); toast('Invitación anulada'); teamPanel(); });
+}
+async function crearInvitacion(){
+  const secret = crypto.getRandomValues(new Uint8Array(18));
+  const r = await Sync.rest('POST', 'invitaciones', { equipo_id: Sync.eq.id, clave: await wrapDK(DKRAW, await inviteKey(secret)) }, 'return=representation');
+  if (!r.ok || !r.data || !r.data.length) return toast('No se pudo crear la invitación (error ' + r.status + ').');
+  const code = makeInviteCode(r.data[0].id, secret);
+  const link = location.origin + location.pathname + '#invitacion=' + code.slice(5);
+  const texto = `Te invito a usar las historias clínicas de ${MARCA.nombre}. Abrí este enlace y creá tu usuario: ${link}`;
+  openModal('＋ Invitar a un colega', `
+    <ol class="howto">
+      <li>En Supabase activá un momento <b>Allow new users to sign up</b> (<i>Authentication → Sign In / Providers</i>).</li>
+      <li>Mandale este enlace a tu colega, por WhatsApp o email:</li></ol>
+    <div class="invcode" id="invLink">${esc(link)}</div>
+    <div class="row" style="margin:8px 0 12px"><button class="btn pri" id="invShare">📤 Compartir</button><button class="btn" id="invCopy">📋 Copiar</button></div>
+    <ol class="howto" start="3">
+      <li>Tu colega abre el enlace, elige <b>Tengo una invitación</b> y crea <b>su propio usuario y su clave maestra</b>.</li>
+      <li>Cuando ya entró, volvé a desactivar <b>Allow new users to sign up</b>.</li></ol>
+    <div class="alert warn">El enlace sirve <b>una sola vez</b> y vence en 7 días. Quien lo tenga puede unirse al equipo: mandáselo sólo a tu colega.</div>
+    <div class="actions"><button class="btn" id="invBack">← Volver</button><button class="btn pri" data-act="close">Listo</button></div>`);
+  $('#invCopy').onclick = async () => { try { await navigator.clipboard.writeText(link); toast('Enlace copiado', true); } catch(_){ toast('Mantené apretado el enlace para copiarlo'); } };
+  $('#invShare').onclick = async () => { try { if (navigator.share) await navigator.share({ text: texto }); else { await navigator.clipboard.writeText(texto); toast('Texto copiado', true); } } catch(_){} };
+  $('#invBack').onclick = teamPanel;
 }
 
 /* ===================== Dictado por voz ===================== */
@@ -1781,7 +2019,7 @@ function closeModal(){ Dict.stop(); const o = $('#ov'); if (o) o.remove(); if (A
 /* ===================== Respaldo ===================== */
 async function exportBackup(){
   const recs = await DB.all();
-  const data = { app: 'historias-clinicas', version: 1, fecha: Date.now(), salt: await DB.getMeta('salt'), verifier: await DB.getMeta('verifier'), patients: recs };
+  const data = { app: 'historias-clinicas', version: 2, fecha: Date.now(), salt: await DB.getMeta('salt'), verifier: await DB.getMeta('verifier'), dk: await DB.getMeta('dk'), patients: recs.map(r => ({ id: r.id, box: r.box })) };
   const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
   const d = new Date(); a.download = `respaldo-hc-${isoDate(d)}-${pad(d.getHours())}${pad(d.getMinutes())}.json`;
@@ -1803,10 +2041,11 @@ function importBackup(){
     $('#impOk').onclick = async () => {
       $('#impOk').disabled = true;
       try {
-        const key = await deriveKey($('#impPw').value, unb64(data.salt));
-        if (await dec(data.verifier, key) !== VERIF) throw 0;
+        const pk = await deriveKey($('#impPw').value, unb64(data.salt));
+        if (await dec(data.verifier, pk) !== VERIF) throw 0;
+        const key = data.dk ? await importDK(await unwrapDK(data.dk, pk)) : pk;   // respaldos viejos: cifrados con la clave personal
         let n = 0;
-        for (const r of data.patients){ const inc = await dec(r.box, key); const cur = byId(inc.id); await savePatient(cur ? mergePatients(cur, inc) : inc); n++; }
+        for (const r of data.patients){ let inc; try { inc = await dec(r.box, key); } catch(_){ continue; } const cur = byId(inc.id); await savePatient(cur ? mergePatients(cur, inc) : inc); n++; }
         closeModal(); toast(`${n} pacientes restaurados`); go('home');
       } catch(_){ $('#impErr').classList.remove('hidden'); $('#impOk').disabled = false; }
     };
@@ -1840,9 +2079,8 @@ function changePass(){
       closeModal(); toast('Clave cambiada en la cuenta. En los otros dispositivos te va a pedir la clave nueva.'); return;
     }
     const salt = crypto.getRandomValues(new Uint8Array(16)); const nk = await deriveKey($('#cp1').value, salt);
-    const recs = []; for (const p of App.patients){ const old = await DB.get(p.id); recs.push({ ...(old || {}), id: p.id, box: await enc(p, nk), dirty: true, lv: ((old && old.lv) || 0) + 1 }); }
-    await DB.putMany(recs); await DB.setMeta('salt', b64(salt)); await DB.setMeta('verifier', await enc(VERIF, nk));
-    KEY = nk; closeModal(); toast('Clave cambiada. Descargá un respaldo nuevo.'); };
+    await DB.setMeta('dk', await wrapDK(DKRAW, nk)); await DB.setMeta('salt', b64(salt)); await DB.setMeta('verifier', await enc(VERIF, nk));
+    UKEY = nk; closeModal(); toast('Clave cambiada. Descargá un respaldo nuevo.'); };
 }
 
 /* ===================== Imprimir ===================== */
@@ -1853,7 +2091,7 @@ function printPatient(){
     ${p.alergias ? `<p><b>ALERGIAS:</b> ${esc(p.alergias)}</p>` : ''}
     ${p.antecedentes ? `<p><b>Antecedentes:</b><br>${esc(p.antecedentes).replace(/\n/g,'<br>')}</p>` : ''}
     ${p.medicacion ? `<p><b>Medicación habitual:</b> ${esc(p.medicacion)}</p>` : ''}
-    <h2>Evoluciones</h2>${(p.evoluciones||[]).map(e => `<div class="evo" style="margin-bottom:12px;padding-left:10px"><b>${fmtDT(e.fecha)}</b>${e.editado ? ' (corregida ' + fmtDT(e.editado) + ')' : ''}<div style="white-space:pre-wrap">${esc(e.texto)}</div></div>`).join('')}
+    <h2>Evoluciones</h2>${(p.evoluciones||[]).map(e => `<div class="evo" style="margin-bottom:12px;padding-left:10px"><b>${fmtDT(e.fecha)}</b>${e.editado ? ' (corregida ' + fmtDT(e.editado) + ')' : ''}<div style="white-space:pre-wrap">${esc(e.texto)}</div>${e.autor && e.autor.n ? `<div style="text-align:right;font-style:italic;margin-top:4px">${esc(e.autor.n)}${e.autor.m ? ' · ' + esc(e.autor.m) : ''}</div>` : ''}</div>`).join('')}
     <p style="margin-top:24px;font-size:10pt">Impreso el ${fmtDT(Date.now())}</p>`;
   window.print();
 }
@@ -1886,6 +2124,8 @@ document.addEventListener('click', async e => {
     case 'tday': App.turnosDate = el.dataset.d; renderTurnos(); break;
     case 'menu': $('#menu').classList.toggle('hidden'); break;
     case 'lock': lock(); break;
+    case 'equipo': teamPanel(); break;
+    case 'tog-estado': togEstado(el.dataset.pid, el.dataset.tid); break;
     case 'sync': syncPanel(); break;
     case 'help': help(); break;
     case 'export': exportBackup(); break;
