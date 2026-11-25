@@ -88,6 +88,9 @@ textarea.i{resize:vertical;min-height:90px}
 details summary{cursor:pointer;font-weight:600}
 a{color:var(--pri)}
 #print{display:none}
+.steps.tabs span[role=button]{cursor:pointer}
+.certprev{border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:var(--bg);font-family:Georgia,serif;font-size:15px;line-height:1.55}
+.certprev p{margin:0 0 8px;text-align:justify}
 .pdfopts{display:flex;flex-direction:column;gap:8px}
 .pdfopts .pillopt{width:100%}
 .uso{margin:14px 0}
@@ -720,7 +723,7 @@ async function runSyncForm(btn, askConfirm = true){
     if (!code) return fail('Pegá el código de invitación que te mandaron.');
     try { parseInviteCode(code); } catch(e){ return fail(e.message); }
     if (!nom) return fail('Escribí tu nombre como querés que aparezca en la firma.');
-    extra.invite = code; extra.perfil = { nombre: nom, matricula: $('#sMat').value.trim() };
+    extra.invite = code; extra.perfil = { nombre: nom, matricula: $('#sMat').value.trim(), especialidad: 'Especialista en Cirugía de la Mano y Miembro Superior' };
   }
   btn.dataset.label = btn.textContent; btn.disabled = true; btn.textContent = 'Conectando…';
   try { await Sync.connect(email, pass, mode, cfg, extra); App.pendingInvite = ''; return true; } catch(e){ fail(e.message); return false; }
@@ -1921,12 +1924,14 @@ function perfilModal(primeraVez, despues){
     openModal('✍️ Tu firma', `${primeraVez ? '<p class="sub" style="margin-top:0">Las evoluciones ahora salen firmadas por quien las escribe. Indicá cómo querés que aparezca tu firma.</p>' : ''}
       <form id="pfF"><div class="grid2"><label class="f"><span>Nombre para la firma</span><input class="i" id="pfN" value="${esc(pf.nombre || '')}" placeholder="Dr. Nombre Apellido" required></label>
       <label class="f"><span>Matrícula</span><input class="i" id="pfM" value="${esc(pf.matricula || '')}" placeholder="MP 0000"></label></div>
+      <label class="f"><span>Especialidad (para certificados)</span><input class="i" id="pfS" value="${esc(pf.especialidad ?? 'Especialista en Cirugía de la Mano y Miembro Superior')}"></label>
       <div id="pfE" class="alert danger hidden"></div>
       <div class="actions"><button type="button" class="btn" data-act="close">${primeraVez ? 'Más tarde' : 'Cancelar'}</button><button class="btn pri" id="pfOk">Guardar firma</button></div></form>`);
     $('#pfN').focus();
     $('#pfF').onsubmit = async ev => { ev.preventDefault(); const n = $('#pfN').value.trim(); if (!n) return;
-      try { await Sync.savePerfil({ nombre: n, matricula: $('#pfM').value.trim() }); }
-      catch(e){ $('#pfE').textContent = e.message + ' Se guardó en este dispositivo; se reintenta al sincronizar.'; $('#pfE').classList.remove('hidden'); await DB.setMeta('perfil', { nombre: n, matricula: $('#pfM').value.trim() }); return; }
+      const nuevo = { nombre: n, matricula: $('#pfM').value.trim(), especialidad: $('#pfS').value.trim() };
+      try { await Sync.savePerfil(nuevo); }
+      catch(e){ $('#pfE').textContent = e.message + ' Se guardó en este dispositivo; se reintenta al sincronizar.'; $('#pfE').classList.remove('hidden'); await DB.setMeta('perfil', nuevo); return; }
       closeModal(); toast('Firma guardada', true); if (despues) despues(); else if (App.view === 'patient') renderPatient(); };
   });
 }
@@ -2083,11 +2088,136 @@ async function generarPDF(p, modo, desde, conAnt){
     doc.text(T(MARCA.nombre + ' · ' + MARCA.producto), W / 2, H - 12, { align: 'center', baseline: 'top' }); }
   return { blob: doc.output('blob'), paginas: n, evoluciones: evs.length };
 }
+const pdfName = (pre, p) => (pre + '_' + p.apellido + '_' + p.nombre + '_' + isoDate(new Date())).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '_') + '.pdf';
+function mostrarPDF(blob, name, detalle){
+  const file = new File([blob], name, { type: 'application/pdf' });
+  const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+  $('#pdfRes').innerHTML = `<div class="alert info">✅ PDF listo${detalle ? ': ' + detalle : ''}.
+    ${canShare ? 'Tocá <b>Compartir / Imprimir</b> y elegí <b>Imprimir</b>, <b>Guardar en Archivos</b>, WhatsApp o Mail.' : ''}</div>
+    <div class="row" style="gap:8px">${canShare ? '<button type="button" class="btn pri" id="pdfShare">📤 Compartir / Imprimir</button>' : ''}<button type="button" class="btn ${canShare ? '' : 'pri'}" id="pdfOpen">🖨️ Abrir para imprimir</button><button type="button" class="btn" id="pdfDown">⬇️ Descargar</button></div>`;
+  if ($('#pdfShare')) $('#pdfShare').onclick = async () => { try { await navigator.share({ files: [file], title: name }); } catch(e){ if (e.name !== 'AbortError') toast('No se pudo compartir: probá con Descargar'); } };
+  $('#pdfOpen').onclick = () => { const u = URL.createObjectURL(blob); const w = window.open(u, '_blank'); if (!w) location.href = u; };
+  $('#pdfDown').onclick = () => downloadBlob(blob, name);
+}
+
+/* ---------- Certificado médico ---------- */
+const fechaLarga = iso => { const [y, m, d] = iso.split('-').map(Number); return `${d} de ${MESES[m - 1]} de ${y}`; };
+const sumarDias = (iso, n) => { const [y, m, d] = iso.split('-').map(Number); return isoDate(new Date(y, m - 1, d + n)); };
+// Arma el texto del certificado (también se muestra como vista previa)
+function textoCertificado(p, c){
+  const F = p.sexo === 'F', M = p.sexo === 'M';
+  const trato = F ? 'la Sra.' : M ? 'el Sr.' : 'el/la paciente';
+  const asistido = F ? 'asistida' : M ? 'asistido' : 'asistido/a';
+  const nombre = [p.nombre, p.apellido].filter(Boolean).join(' ');
+  const partes = [];
+  let t = `Certifico que ${trato} ${nombre}${p.dni ? ', DNI ' + fmtDNI(p.dni) : ''}`;
+  if (c.art) t += `, cobertura ${c.art}${c.siniestro ? ' (siniestro Nº ' + c.siniestro + ')' : ''}`;
+  t += `, fue ${asistido} ${c.fecha === isoDate(new Date()) ? 'en el día de la fecha' : 'el día ' + fmtDate(c.fecha)} por ${c.dx || '__________'}.`;
+  partes.push(t);
+  if (c.tto) partes.push(`Se indica tratamiento: ${c.tto.replace(/\.$/, '')}.`);
+  if (c.ind === 'reposo' && +c.dias > 0){ const desde = c.desde || c.fecha, hasta = sumarDias(desde, +c.dias - 1);
+    partes.push(`Se indica reposo laboral por ${+c.dias} (${numLetras(+c.dias)}) día${+c.dias === 1 ? '' : 's'}, desde el ${fmtDate(desde)} hasta el ${fmtDate(hasta)} inclusive, con control posterior.`); }
+  else if (c.ind === 'continuar') partes.push('Puede continuar con sus tareas habituales.');
+  else if (c.ind === 'alta') partes.push(`Se otorga el alta laboral: puede reintegrarse a sus tareas habituales a partir del ${fmtDate(c.alta || c.fecha)}.`);
+  partes.push(`Se extiende el presente a pedido ${F ? 'de la interesada' : M ? 'del interesado' : 'del/de la interesado/a'} para ser presentado ante quien corresponda.`);
+  return partes;
+}
+function numLetras(n){ const u = ['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte','veintiuno','veintidós','veintitrés','veinticuatro','veinticinco','veintiséis','veintisiete','veintiocho','veintinueve'];
+  if (n < 30) return u[n]; const d = ['', '', '', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
+  if (n < 100) return d[Math.floor(n / 10)] + (n % 10 ? ' y ' + u[n % 10] : ''); return String(n); }
+async function generarCertificado(p, c, pf){
+  const { jsPDF } = await cargarPDFLib();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, H = 297, M = 25, CW = W - 2 * M; let y = 20;
+  const T = s => String(s ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/…/g, '...').replace(/[^\x00-\xff\n]/g, '');
+  const logoH = 13; doc.addImage(LOGOS.logoGris, 'PNG', M, y, logoH * 1048 / 229, logoH);
+  y += logoH + 6; doc.setDrawColor(218, 93, 48); doc.setLineWidth(0.8); doc.line(M, y, W - M, y); y += 16;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(30, 30, 30); doc.text('CERTIFICADO MÉDICO', W / 2, y, { align: 'center', baseline: 'top' }); y += 18;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(11.5); doc.setTextColor(60, 60, 60);
+  doc.text(T(`${c.lugar || 'Salta'}, ${fechaLarga(c.emision || isoDate(new Date()))}`), W - M, y, { align: 'right', baseline: 'top' }); y += 16;
+  doc.setFontSize(12.5); doc.setTextColor(25, 25, 25);
+  for (const par of textoCertificado(p, c)){
+    const lines = doc.splitTextToSize(T(par), CW);
+    doc.text(lines, M, y, { baseline: 'top', align: 'justify', maxWidth: CW, lineHeightFactor: 1.6 });
+    y += lines.length * 12.5 * 0.3528 * 1.6 + 6;
+  }
+  // espacio para la firma manuscrita y el sello
+  y = Math.max(y + 30, 200);
+  const cx = W - M - 50;     // centro del bloque de firma (100 mm de ancho)
+  doc.setDrawColor(60, 60, 60); doc.setLineWidth(0.3); doc.line(cx - 38, y, cx + 38, y); y += 4;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(25, 25, 25); doc.text(T(pf.nombre || ''), cx, y, { align: 'center', baseline: 'top' }); y += 6;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(60, 60, 60);
+  if (pf.matricula){ doc.text(T(pf.matricula), cx, y, { align: 'center', baseline: 'top' }); y += 5.2; }
+  if (pf.especialidad){ doc.setFontSize(9.5); const ls = doc.splitTextToSize(T(pf.especialidad), 100); doc.text(ls, cx, y, { align: 'center', baseline: 'top' }); y += ls.length * 4.6; }
+  doc.setFontSize(8); doc.setTextColor(150, 150, 150); doc.text('Firma y sello', cx, y + 3, { align: 'center', baseline: 'top' });
+  doc.setDrawColor(225, 225, 225); doc.line(M, H - 16, W - M, H - 16);
+  doc.text(T(MARCA.nombre + ' · ' + location.hostname.replace(/^www\./, '')), W / 2, H - 13, { align: 'center', baseline: 'top' });
+  return doc.output('blob');
+}
+async function certificadoModal(prev){
+  const p = byId(App.current); if (!p) return;
+  cargarPDFLib().catch(() => {});
+  const pf = (await DB.getMeta('perfil')) || {}, lugar = (await DB.getMeta('ciudadCert')) || 'Salta';
+  const hoy = isoDate(new Date()), esART = /\bART\b|riesgos? del trabajo/i.test(p.obraSocial || '');
+  const ult = (p.certificados || []).slice(-1)[0] || {};
+  const c0 = prev || { fecha: hoy, dx: ult.dx || '', tto: '', ind: esART ? 'reposo' : 'reposo', dias: '', desde: hoy, alta: hoy, art: esART ? p.obraSocial : '', siniestro: ult.siniestro || '' };
+  const certs = (p.certificados || []).slice().reverse();
+  openModal('🖨️ Imprimir o compartir', `
+    <div class="steps tabs"><span data-tab="hc" role="button">📄 Historia clínica</span><span class="on">📝 Certificado</span></div>
+    ${!pf.nombre ? '<div class="alert warn">Primero configurá tu firma (nombre, matrícula y especialidad).</div>' : ''}
+    <form id="ctF">
+      <div class="grid2"><label class="f"><span>Fecha de atención</span><input class="i" type="date" id="ctFecha" value="${c0.fecha}"></label>
+        <label class="f"><span>Lugar</span><input class="i" id="ctLugar" value="${esc(lugar)}"></label></div>
+      <label class="f"><span>Diagnóstico / patología</span><div class="row" style="align-items:flex-start"><div class="grow"><textarea class="i" id="ctDx" style="min-height:64px" placeholder="Ej: fractura de radio distal derecho">${esc(c0.dx)}</textarea><div class="interim" id="interim-ctDx"></div></div><button type="button" class="mic" data-act="mic" data-target="ctDx">${MIC_SVG}</button></div></label>
+      <label class="f"><span>Tratamiento indicado (opcional)</span><div class="row" style="align-items:flex-start"><div class="grow"><textarea class="i" id="ctTto" style="min-height:52px" placeholder="Ej: inmovilización con yeso antebraquipalmar y analgésicos">${esc(c0.tto)}</textarea><div class="interim" id="interim-ctTto"></div></div><button type="button" class="mic" data-act="mic" data-target="ctTto">${MIC_SVG}</button></div></label>
+      <div class="pdfopts" style="margin-bottom:10px">
+        <label class="pillopt"><input type="radio" name="ctInd" value="reposo" ${c0.ind === 'reposo' ? 'checked' : ''}> Reposo laboral por <input class="i" type="number" min="1" max="365" id="ctDias" value="${esc(c0.dias)}" style="width:80px;padding:4px 8px;margin:0 6px"> días, desde <input class="i" type="date" id="ctDesde" value="${c0.desde || hoy}" style="width:auto;padding:4px 8px;margin-left:6px"></label>
+        <label class="pillopt"><input type="radio" name="ctInd" value="continuar" ${c0.ind === 'continuar' ? 'checked' : ''}> Puede continuar con sus tareas habituales</label>
+        <label class="pillopt"><input type="radio" name="ctInd" value="alta" ${c0.ind === 'alta' ? 'checked' : ''}> Alta laboral: reintegro a partir del <input class="i" type="date" id="ctAlta" value="${c0.alta || hoy}" style="width:auto;padding:4px 8px;margin-left:6px"></label>
+        <label class="pillopt"><input type="radio" name="ctInd" value="nada" ${c0.ind === 'nada' ? 'checked' : ''}> Sin indicación laboral</label>
+      </div>
+      <div class="grid2"><label class="f"><span>Cobertura / ART (opcional)</span><input class="i" id="ctArt" value="${esc(c0.art || '')}" placeholder="Ej: ART Swiss Medical"></label>
+        <label class="f"><span>Nº de siniestro (opcional)</span><input class="i" id="ctSin" value="${esc(c0.siniestro || '')}"></label></div>
+      <div class="sub" style="margin:4px 0 6px">Vista previa:</div><div class="certprev" id="ctPrev"></div>
+      <div class="sub" style="margin-top:8px">Firma: <b>${esc(pf.nombre || '—')}</b>${pf.matricula ? ' · ' + esc(pf.matricula) : ''}${pf.especialidad ? ' · ' + esc(pf.especialidad) : ''} · <a href="#" id="ctFirma">editar</a></div>
+      <div id="pdfRes" style="margin-top:10px"></div>
+      <div class="actions"><button type="button" class="btn" data-act="close">Cerrar</button><button class="btn pri" id="ctGo" ${pf.nombre ? '' : 'disabled'}>📝 Generar certificado</button></div>
+    </form>
+    ${certs.length ? `<h4 style="margin:16px 0 6px">Certificados emitidos</h4><ul class="list">${certs.map((x, i) => `<li data-cert="${certs.length - 1 - i}"><div class="grow"><div class="name">${fmtDate(x.emision)} · ${esc(x.dx || '')}</div><div class="sub">${esc(x.resumen || '')} · ${esc((x.autor && x.autor.n) || '')}</div></div><span class="sub">volver a generar ›</span></li>`).join('')}</ul>` : ''}`);
+  const leer = () => ({ fecha: $('#ctFecha').value || hoy, lugar: $('#ctLugar').value.trim() || 'Salta', dx: $('#ctDx').value.trim(), tto: $('#ctTto').value.trim(),
+    ind: $('input[name=ctInd]:checked').value, dias: $('#ctDias').value, desde: $('#ctDesde').value || hoy, alta: $('#ctAlta').value || hoy,
+    art: $('#ctArt').value.trim(), siniestro: $('#ctSin').value.trim(), emision: hoy });
+  const prevw = () => { if (!$('#ctPrev')) return; $('#ctPrev').innerHTML = textoCertificado(p, leer()).map(t => `<p>${esc(t)}</p>`).join(''); };
+  $('#ctF').addEventListener('input', prevw); $('#ctF').addEventListener('change', prevw); prevw();
+  $('#ctDias').onfocus = () => { $('input[name=ctInd][value=reposo]').checked = true; prevw(); };
+  $('#ctAlta').onfocus = () => { $('input[name=ctInd][value=alta]').checked = true; prevw(); };
+  $('[data-tab=hc]').onclick = () => imprimirModal();
+  $('#ctFirma').onclick = e => { e.preventDefault(); perfilModal(false, () => certificadoModal(leer())); };
+  document.querySelectorAll('[data-cert]').forEach(li => li.onclick = () => { const x = p.certificados[+li.dataset.cert]; certificadoModal({ ...x }); });
+  $('#ctF').onsubmit = async e => { e.preventDefault(); Dict.stop();
+    const c = leer();
+    if (!c.dx) return toast('Escribí el diagnóstico o la patología.');
+    if (c.ind === 'reposo' && !(+c.dias > 0)) return toast('Indicá la cantidad de días de reposo.');
+    const b = $('#ctGo'); b.disabled = true; b.textContent = 'Generando…';
+    try {
+      await DB.setMeta('ciudadCert', c.lugar);
+      const blob = await generarCertificado(p, c, pf);
+      // queda registrado en la ficha (respaldo médico-legal)
+      const resumen = c.ind === 'reposo' ? `Reposo ${c.dias} días desde ${fmtDate(c.desde)}` : c.ind === 'continuar' ? 'Continúa tareas habituales' : c.ind === 'alta' ? `Alta laboral desde ${fmtDate(c.alta)}` : 'Sin indicación laboral';
+      p.certificados = p.certificados || []; p.certificados.push({ id: uid(), ...c, resumen, autor: firmaActual(pf), creado: Date.now() });
+      await savePatient(p);
+      mostrarPDF(blob, pdfName('Certificado', p), resumen);
+      b.disabled = false; b.textContent = '📝 Generar de nuevo';
+    } catch(err){ $('#pdfRes').innerHTML = `<div class="alert danger">${esc(err.message)}</div>`; b.disabled = false; b.textContent = '📝 Generar certificado'; }
+  };
+}
+
 function imprimirModal(){
   const p = byId(App.current); if (!p) return;
   cargarPDFLib().catch(() => {});      // se precarga mientras se eligen las opciones
   const n = (p.evoluciones || []).length;
   openModal('🖨️ Imprimir o compartir', `
+    <div class="steps tabs"><span class="on">📄 Historia clínica</span><span data-tab="cert" role="button">📝 Certificado</span></div>
     <p class="sub" style="margin-top:0">Se genera un PDF de la historia de <b>${esc(fullName(p))}</b> para imprimir, guardar o enviar.</p>
     <div class="pdfopts">
       <label class="pillopt"><input type="radio" name="pdfModo" value="todo" checked> Toda la historia (${n} evoluci${n === 1 ? 'ón' : 'ones'})</label>
@@ -2098,21 +2228,14 @@ function imprimirModal(){
     <div id="pdfRes"></div>
     <div class="actions"><button class="btn" data-act="close">Cerrar</button><button class="btn pri" id="pdfGo">📄 Generar PDF</button></div>`);
   $('#pdfDesde').onfocus = () => { $('input[name=pdfModo][value=desde]').checked = true; };
+  $('[data-tab=cert]').onclick = () => certificadoModal();
   $('#pdfGo').onclick = async () => {
     const b = $('#pdfGo'); b.disabled = true; b.textContent = 'Generando…';
     try {
       const modo = $('input[name=pdfModo]:checked').value;
       const r = await generarPDF(p, modo, $('#pdfDesde').value, $('#pdfAnt').checked);
-      const name = ('HC_' + p.apellido + '_' + p.nombre + '_' + isoDate(new Date())).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '_') + '.pdf';
-      const file = new File([r.blob], name, { type: 'application/pdf' });
-      const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
-      $('#pdfRes').innerHTML = `<div class="alert info">✅ PDF listo: ${r.paginas} página${r.paginas === 1 ? '' : 's'}, ${r.evoluciones} evoluci${r.evoluciones === 1 ? 'ón' : 'ones'}.
-        ${canShare ? 'Tocá <b>Compartir / Imprimir</b> y elegí <b>Imprimir</b>, <b>Guardar en Archivos</b>, WhatsApp o Mail.' : ''}</div>
-        <div class="row" style="gap:8px">${canShare ? '<button class="btn pri" id="pdfShare">📤 Compartir / Imprimir</button>' : ''}<button class="btn ${canShare ? '' : 'pri'}" id="pdfOpen">🖨️ Abrir para imprimir</button><button class="btn" id="pdfDown">⬇️ Descargar</button></div>`;
+      mostrarPDF(r.blob, pdfName('HC', p), `${r.paginas} página${r.paginas === 1 ? '' : 's'}, ${r.evoluciones} evoluci${r.evoluciones === 1 ? 'ón' : 'ones'}`);
       b.textContent = '📄 Generar de nuevo'; b.disabled = false; b.classList.remove('pri');
-      if ($('#pdfShare')) $('#pdfShare').onclick = async () => { try { await navigator.share({ files: [file], title: name }); } catch(e){ if (e.name !== 'AbortError') toast('No se pudo compartir: probá con Descargar'); } };
-      $('#pdfOpen').onclick = () => { const u = URL.createObjectURL(r.blob); const w = window.open(u, '_blank'); if (!w) location.href = u; };
-      $('#pdfDown').onclick = () => downloadBlob(r.blob, name);
     } catch(e){ $('#pdfRes').innerHTML = `<div class="alert danger">${esc(e.message)}</div>`; b.disabled = false; b.textContent = '📄 Generar PDF'; }
   };
 }
@@ -2223,6 +2346,7 @@ function mergePatients(a, b){
   out.evoluciones = union('evoluciones').sort((x,y) => x.fecha - y.fecha);
   out.turnos = union('turnos');
   out.adjuntos = union('adjuntos');
+  out.certificados = union('certificados').sort((x, y) => (x.creado || 0) - (y.creado || 0));
   return out;
 }
 function changePass(){
