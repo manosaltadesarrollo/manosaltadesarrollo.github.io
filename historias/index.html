@@ -88,6 +88,11 @@ textarea.i{resize:vertical;min-height:90px}
 details summary{cursor:pointer;font-weight:600}
 a{color:var(--pri)}
 #print{display:none}
+.lstab{overflow:auto;max-height:55vh;border:1px solid var(--line);border-radius:10px}
+.lstab table{width:100%;border-collapse:collapse;font-size:14px}
+.lstab th,.lstab td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.lstab th{position:sticky;top:0;background:var(--card);color:var(--muted);font-size:12px;text-transform:uppercase}
+.lstab input[type=checkbox]{width:20px;height:20px}
 .modal.wide{max-width:980px}
 .modal.full{max-width:none;width:100vw;height:100vh;max-height:100vh;border-radius:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom))}
 .dv{outline:none}
@@ -203,6 +208,7 @@ const fmtDT = ts => { const d = new Date(ts); return `${pad(d.getDate())}/${pad(
 const fmtDNI = s => { const d = digits(s); return d.length >= 7 ? d.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : s || ''; };
 const DIAS = ['domingo','lunes','martes','miercoles','jueves','viernes','sabado'];
 const diaSemana = iso => { const [y,m,d] = iso.split('-').map(Number); return ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'][new Date(y,m-1,d).getDay()]; };
+function edadAprox(p){ if (p.nacimiento || !p.edadAprox) return ''; const [y, m, d] = p.edadAprox.al.split('-').map(Number), t = new Date(); let e = p.edadAprox.edad + t.getFullYear() - y; if (t.getMonth() + 1 < m || (t.getMonth() + 1 === m && t.getDate() < d)) e--; return e + ' años'; }
 function edad(nac){ if(!nac) return ''; const [y,m,d]=nac.split('-').map(Number); const t=new Date(); let e=t.getFullYear()-y; if(t.getMonth()+1<m||(t.getMonth()+1===m&&t.getDate()<d)) e--; return e>=0&&e<130?e+' años':''; }
 function toast(msg, ok){ document.querySelectorAll('.toast').forEach(x => x.remove()); const t=document.createElement('div'); t.className='toast'; t.textContent=msg; if (ok) t.insertAdjacentHTML('afterbegin', ICON.check + ' '); document.body.appendChild(t); setTimeout(()=>t.remove(),2600); }
 const fullName = p => [p.apellido, p.nombre].filter(Boolean).join(', ') || '(sin nombre)';
@@ -633,6 +639,7 @@ async function startApp(){
     <button data-act="export">💾 Descargar respaldo cifrado</button>
     <button data-act="import">📂 Restaurar / importar respaldo</button>
     <button data-act="chpass">🔑 Cambiar clave maestra</button>
+    <button data-act="lista">📋 Cargar lista del día</button>
     <button data-act="pacscfg">🏥 Portales de estudios (PACS)</button>
     <button data-act="help">❓ Cómo se usa</button>
     <button data-act="lock">🔒 Bloquear ahora</button>
@@ -693,7 +700,7 @@ async function renderHome(){
   renderResults();
   if (matchMedia('(min-width:700px)').matches) q.focus();
 }
-function haystack(p){ return norm([p.apellido, p.nombre, p.nombre, p.apellido, p.dni, digits(p.dni), p.telefono, digits(p.telefono), p.obraSocial, p.nroAfiliado].join(' ')); }
+function haystack(p){ return norm([p.apellido, p.nombre, p.nombre, p.apellido, p.dni, digits(p.dni), p.telefono, digits(p.telefono), p.obraSocial, p.nroAfiliado, p.idExterno, digits(p.telefono2)].join(' ')); }
 function search(q){
   const toks = norm(q).replace(/[.,]/g,' ').split(/\s+/).filter(Boolean).map(t => /^\d+$/.test(t) ? t : t);
   if (!toks.length) return [];
@@ -711,12 +718,12 @@ function patientLi(p, extra=''){
   const le = lastEvo(p);
   return `<li data-pid="${p.id}"><div class="avatar">${esc(initials(p))}</div><div class="grow">
     <div class="name">${esc(fullName(p))} ${p.alergias ? '<span class="pill danger">Alergia</span>' : ''}</div>
-    <div class="sub">${[p.dni ? 'DNI ' + esc(fmtDNI(p.dni)) : '', esc(p.obraSocial), edad(p.nacimiento), le ? 'Últ. evol. ' + fmtDT(le).slice(0,10) : 'Sin evoluciones'].filter(Boolean).join(' · ')}</div></div>${extra}</li>`;
+    <div class="sub">${[p.dni ? 'DNI ' + esc(fmtDNI(p.dni)) : '', esc(p.obraSocial), edad(p.nacimiento) || edadAprox(p), le ? 'Últ. evol. ' + fmtDT(le).slice(0,10) : 'Sin evoluciones'].filter(Boolean).join(' · ')}</div></div>${extra}</li>`;
 }
 function turnoLi(t, p){
   const cls = t.estado === 'atendido' ? 'ok' : t.estado === 'ausente' ? 'danger' : 'warn';
   return `<li data-pid="${p.id}"><div class="hora">${esc(t.hora || '--:--')}</div><div class="grow"><div class="name">${esc(fullName(p))}</div>
-    <div class="sub">${[esc(t.motivo), esc(p.obraSocial)].filter(Boolean).join(' · ') || '&nbsp;'}</div></div><span class="pill ${cls}">${esc(t.estado || 'pendiente')}</span></li>`;
+    <div class="sub">${[esc(t.motivo), esc(p.obraSocial), esc(t.nota)].filter(Boolean).join(' · ') || '&nbsp;'}</div></div><span class="pill ${cls}">${esc(t.estado || 'pendiente')}</span></li>`;
 }
 function turnosDe(fecha){
   const out = [];
@@ -730,7 +737,7 @@ function renderResults(){
     const hoy = turnosDe(isoDate(new Date()));
     const rec = [...App.patients].sort((a,b) => (b.actualizado||0)-(a.actualizado||0)).slice(0, 12);
     box.innerHTML = `
-    <div class="card"><h2>Turnos de hoy · ${diaSemana(isoDate(new Date()))} ${fmtDate(isoDate(new Date()))}</h2>
+    <div class="card"><div class="row" style="margin-bottom:6px"><h2 class="grow" style="margin:0">Turnos de hoy · ${diaSemana(isoDate(new Date()))} ${fmtDate(isoDate(new Date()))}</h2><button class="btn sm" data-act="lista">📋 Cargar lista del día</button></div>
       ${hoy.length ? `<ul class="list">${hoy.map(([t,p]) => turnoLi(t,p)).join('')}</ul>` : `<div class="empty"><img src="${LOGOS.isotipoGris}" alt="">No hay turnos cargados para hoy.<br><button class="btn sm" data-act="wa" style="margin-top:8px">💬 Cargar turno desde WhatsApp</button></div>`}
     </div>
     <div class="card"><h2>Pacientes recientes (${App.patients.length} en total)</h2>
@@ -757,8 +764,8 @@ function renderPatient(){
   <div class="card">
     <div class="row"><div class="avatar" style="width:52px;height:52px;font-size:20px">${esc(initials(p))}</div>
     <div class="grow"><div class="name" style="font-size:21px">${esc(fullName(p))}</div>
-    <div class="sub">${[p.dni ? 'DNI ' + esc(fmtDNI(p.dni)) : '', p.nacimiento ? fmtDate(p.nacimiento) + ' (' + edad(p.nacimiento) + ')' : '', esc(p.obraSocial) + (p.nroAfiliado ? ' Nº ' + esc(p.nroAfiliado) : '')].filter(Boolean).join(' · ')}</div>
-    ${p.telefono ? `<div class="sub">📞 <a href="tel:${esc(tel)}">${esc(p.telefono)}</a> · <a href="https://wa.me/${esc(waNum)}" target="_blank" rel="noopener">WhatsApp</a></div>` : ''}</div></div>
+    <div class="sub">${[p.dni ? 'DNI ' + esc(fmtDNI(p.dni)) : '', p.nacimiento ? fmtDate(p.nacimiento) + ' (' + edad(p.nacimiento) + ')' : edadAprox(p), ({F:'Femenino',M:'Masculino'})[p.sexo] || '', esc(p.obraSocial) + (p.nroAfiliado ? ' Nº ' + esc(p.nroAfiliado) : '')].filter(Boolean).join(' · ')}</div>
+    ${p.telefono ? `<div class="sub">📞 <a href="tel:${esc(tel)}">${esc(p.telefono)}</a> · <a href="https://wa.me/${esc(waNum)}" target="_blank" rel="noopener">WhatsApp</a>${p.telefono2 ? ` · otro: <a href="tel:${esc(digits(p.telefono2))}">${esc(p.telefono2)}</a>` : ''}</div>` : ''}</div></div>
     ${p.alergias ? `<div class="alert danger" style="margin:12px 0 0">⚠️ ALERGIAS: ${esc(p.alergias)}</div>` : ''}
     ${(p.antecedentes || p.medicacion) ? `<details style="margin-top:12px" open><summary>Antecedentes y medicación</summary>
       ${p.antecedentes ? `<div style="white-space:pre-wrap;margin-top:6px">${esc(p.antecedentes)}</div>` : ''}
@@ -821,7 +828,8 @@ function patientForm(p, title, onSave){
     <div class="grid2">${F('apellido','Apellido','text','required autocapitalize="words"')}${F('nombre','Nombre','text','autocapitalize="words"')}
     ${F('dni','DNI','text','inputmode="numeric"')}${F('nacimiento','Fecha de nacimiento','date')}
     ${F('telefono','Teléfono / WhatsApp','tel')}${F('obraSocial','Obra social / prepaga','text','list="osList"')}
-    ${F('nroAfiliado','Nº de afiliado')}${F('alergias','Alergias','text','placeholder="Ninguna conocida"')}</div>
+    ${F('nroAfiliado','Nº de afiliado')}${F('alergias','Alergias','text','placeholder="Ninguna conocida"')}
+    ${F('telefono2','Otro teléfono','tel')}<label class="f"><span>Sexo</span><select class="i" id="f_sexo">${[['', '—'], ['F', 'Femenino'], ['M', 'Masculino'], ['X', 'Otro']].map(([v, t]) => `<option value="${v}" ${p.sexo === v ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
     <label class="f"><span>Medicación habitual</span><input class="i" id="f_medicacion" value="${esc(p.medicacion||'')}"></label>
     <label class="f"><span>Antecedentes</span><div class="row" style="align-items:flex-start"><div class="grow"><textarea class="i" id="f_antecedentes">${esc(p.antecedentes||'')}</textarea><div class="interim" id="interim-f_antecedentes"></div></div><button type="button" class="mic" data-act="mic" data-target="f_antecedentes">${MIC_SVG}</button></div></label>
     <div id="dupWarn"></div>
@@ -833,7 +841,7 @@ function patientForm(p, title, onSave){
   dniIn.oninput();
   $('#f_apellido').focus();
   $('#pf').onsubmit = async e => { e.preventDefault(); Dict.stop();
-    for (const k of ['apellido','nombre','dni','nacimiento','telefono','obraSocial','nroAfiliado','alergias','medicacion','antecedentes']) p[k] = $('#f_'+k).value.trim();
+    for (const k of ['apellido','nombre','dni','nacimiento','telefono','telefono2','sexo','obraSocial','nroAfiliado','alergias','medicacion','antecedentes']) p[k] = $('#f_'+k).value.trim();
     p.apellido = titleCase(p.apellido); p.nombre = titleCase(p.nombre); p.dni = digits(p.dni) || p.dni;
     await savePatient(p); closeModal(); onSave(p); };
 }
@@ -857,7 +865,7 @@ function renderTurnos(){
   <div class="row" style="margin-bottom:10px"><button class="btn sm" data-act="home">← Volver</button></div>
   <div class="card"><div class="row"><button class="btn sm" data-act="tday" data-d="${shift(-1)}">◀</button>
     <input class="i grow" type="date" id="tDate" value="${f}" style="text-align:center"><button class="btn sm" data-act="tday" data-d="${shift(1)}">▶</button>
-    <button class="btn sm" data-act="tday" data-d="${isoDate(new Date())}">Hoy</button></div></div>
+    <button class="btn sm" data-act="tday" data-d="${isoDate(new Date())}">Hoy</button><button class="btn sm" data-act="lista">📋 Cargar lista</button></div></div>
   <div class="card"><h2>${diaSemana(f)} ${fmtDate(f)} · ${list.length} turno${list.length===1?'':'s'}</h2>
   ${list.length ? `<ul class="list">${list.map(([t,p]) => turnoLi(t,p)).join('')}</ul>` : `<div class="empty"><img src="${LOGOS.isotipoGris}" alt="">Sin turnos este día.</div>`}</div>`;
   $('#tDate').onchange = e => { App.turnosDate = e.target.value || isoDate(new Date()); renderTurnos(); };
@@ -1599,6 +1607,114 @@ function addEyes(root = document){
 }
 new MutationObserver(() => addEyes()).observe(document.body, { childList: true, subtree: true });
 
+/* ===================== Cargar lista del día (Pegasus / HPS y similares) =====================
+   Se pega el texto del listado de turnos (copiado de la página o reconocido de una captura con el iPad)
+   y la app crea o actualiza los pacientes y les agrega el turno. Todo ocurre en el dispositivo. */
+const PARTICULAS = new Set(['de', 'del', 'la', 'las', 'los', 'y', 'van', 'von', 'da', 'do', 'dos']);
+function nombrePropio(s){ return titleCase(String(s || '').trim().replace(/\s+/g, ' ')).split(' ').map((w, i) => i && PARTICULAS.has(w.toLowerCase()) ? w.toLowerCase() : w).join(' '); }
+const telValido = t => { const d = digits(t); return d.length >= 7 && !/^0+$/.test(d) ? t.trim() : ''; };
+function parseLista(raw){
+  const text = String(raw || '').replace(/\r/g, '').replace(/[ \t]+/g, ' ');
+  // fecha del listado: "martes 24 de noviembre de 2026" o "Desde 24/11/2026"
+  let fecha = '';
+  const fm = norm(text).match(/\b(\d{1,2}) de (enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|setiembre|octubre|noviembre|diciembre) de (\d{4})/);
+  if (fm) fecha = isoDate(new Date(+fm[3], fm[2] === 'setiembre' ? 8 : MESES.indexOf(fm[2]), +fm[1]));
+  else { const d2 = text.match(/(?:desde|fecha)\s*:?\s*(\d{1,2})\/(\d{1,2})\/(\d{4})/i); if (d2) fecha = isoDate(new Date(+d2[3], +d2[2] - 1, +d2[1])); }
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+  const out = [];
+  const isRec = l => /\bDNI\s*:?\s*[\d.]{6,}/i.test(l) && (/ID\s*#/i.test(l) || /\bEdad\b/i.test(l) || /\bSexo\b/i.test(l));
+  const starts = []; lines.forEach((l, i) => { if (isRec(l)) starts.push(i); });
+  starts.forEach((i, k) => {
+    // nombre: la línea anterior con coma (APELLIDO, NOMBRE); hora: la línea HH:MM más cercana arriba
+    let nameIdx = -1;
+    for (let j = i - 1; j >= Math.max(0, i - 3); j--){ if (/^(?:\d{1,2}[:.]\d{2}\s+)?[\p{L}'´`.\- ]+,\s*[\p{L}'´`.\- ]+$/u.test(lines[j])){ nameIdx = j; break; } }
+    let nameLine = nameIdx >= 0 ? lines[nameIdx] : '', hora = '';
+    const inl = lines[i].match(/^(.*?,.*?)\s+ID\s*#/i); if (!nameLine && inl) nameLine = inl[1];
+    const hm = nameLine.match(/^(\d{1,2})[:.](\d{2})\s+(.*)$/); if (hm){ hora = `${pad(+hm[1])}:${hm[2]}`; nameLine = hm[3]; }
+    for (let j = (nameIdx >= 0 ? nameIdx : i) - 1; !hora && j >= Math.max(0, (nameIdx >= 0 ? nameIdx : i) - 3); j--){ const t = lines[j].match(/^(\d{1,2})[:.](\d{2})(?:\s*hs?)?$/i); if (t) hora = `${pad(+t[1])}:${t[2]}`; }
+    const end = k + 1 < starts.length ? starts[k + 1] - 2 : lines.length - 1;
+    const chunk = lines.slice(i, Math.max(i + 1, end + 1));
+    const all = chunk.join('\n');
+    const g = re => { const m = all.match(re); return m ? m[1].trim() : ''; };
+    const [ap, ...no] = nameLine.split(',');
+    const r = { hora, apellido: nombrePropio(ap), nombre: nombrePropio(no.join(' ')),
+      idExterno: g(/ID\s*#\s*:?\s*(\d+)/i), dni: digits(g(/DNI\s*:?\s*([\d.]+)/i)), edad: g(/Edad\s*:?\s*(\d+)/i),
+      sexo: (g(/Sexo\s*:?\s*(Femenino|Masculino|F|M|X)\b/i) || '').charAt(0).toUpperCase(),
+      obraSocial: g(/Cobertura\s*:?\s*(.+?)(?=\s+Plan\b|\s+Afiliado\b|$)/im), plan: g(/\bPlan\s*:?\s*(.+?)(?=\s+Afiliado\b|$)/im),
+      nroAfiliado: g(/Afiliado\s*:?\s*([^\s\n]+)/i).replace(/^[.0\-]+$/, ''),
+      tel: telValido(g(/Tel[eé]fono\s*:?\s*(\+?[\d \-]+?)(?=[ \t]+[A-Za-zÁÉÍÓÚáéíóú]|[ \t]*$)/im)), cel: telValido(g(/Celular\s*:?\s*(\+?[\d \-]+)/i)),
+      estado: /\bAusente\b/i.test(all) ? 'ausente' : /\bAtendid[oa]\b/i.test(all) ? 'atendido' : 'pendiente', nota: '' };
+    // notas sueltas del turno (montos, autorizaciones, "transfer", etc.)
+    r.nota = chunk.slice(1).filter(l => !/^(Cobertura|Tel[eé]fono|Celular|Atendid[oa]s?|En espera|Ausente|Ver turno|Sin atender|Pendiente|Turnos|Desde|Hasta|Filtrar)\b/i.test(l)
+      && !/\|/.test(l) && !/^\d{1,2}:\d{2}$/.test(l) && !/^(?:\d{1,2}[:.]\d{2}\s+)?[\p{L}'´`.\- ]+,\s*[\p{L}'´`.\- ]+$/u.test(l)).join(' · ').slice(0, 140);
+    if (r.apellido || r.dni) out.push(r);
+  });
+  return { fecha, items: out };
+}
+function matchExisting(r){
+  return App.patients.find(p => r.dni && digits(p.dni) === r.dni) ||
+         App.patients.find(p => !r.dni && norm(p.apellido) === norm(r.apellido) && norm(p.nombre) === norm(r.nombre)) || null;
+}
+function openLista(text = ''){
+  openModal('📋 Cargar lista del día', `
+    <div class="steps"><span class="on">1 · Pegar lista</span><span>2 · Revisar y guardar</span></div>
+    <ol class="sub howto">
+      <li><b>Desde la página de turnos (Pegasus):</b> mantené apretado sobre la página → <b>Seleccionar todo</b> → <b>Copiar</b>.</li>
+      <li><b>O desde una captura:</b> abrila en Fotos, mantené apretado sobre el texto → <b>Seleccionar todo</b> → <b>Copiar</b>.</li>
+      <li>Volvé acá y pegá en el recuadro (mantener apretado → <b>Pegar</b>).</li></ol>
+    <textarea class="i" id="lsText" style="min-height:140px" placeholder="Pegá acá el listado de turnos…">${esc(text)}</textarea>
+    <div id="lsHint" class="sub" style="min-height:1.4em;margin-top:6px"></div>
+    <div class="actions sticky"><button class="btn" data-act="close">Cancelar</button><button class="btn pri" id="lsGo">Continuar →</button></div>`);
+  const ta = $('#lsText'); if (!text) ta.focus();
+  const go = () => { const t = ta.value.trim(); if (!t){ $('#lsHint').innerHTML = '<span style="color:var(--danger)">Primero pegá el listado en el recuadro.</span>'; return; }
+    const res = parseLista(t);
+    if (!res.items.length){ $('#lsHint').innerHTML = '<span style="color:var(--danger)">No se encontraron pacientes en el texto. Asegurate de copiar los turnos (con nombre y DNI).</span>'; return; }
+    showLista(res, t); };
+  ta.addEventListener('paste', () => setTimeout(go, 50));
+  $('#lsGo').onclick = go;
+}
+function showLista(res, text){
+  const rows = res.items.map(r => ({ r, ex: matchExisting(r), on: true }));
+  const fecha = res.fecha || isoDate(new Date());
+  const modal = $('#ov .modal'); modal.classList.add('wide');
+  modal.innerHTML = `<h3>📋 Cargar lista del día</h3>
+    <div class="steps"><span>1 · Pegar lista</span><span class="on">2 · Revisar y guardar</span></div>
+    <div class="row" style="margin-bottom:10px"><label class="f" style="margin:0;flex:0 1 220px"><span>Fecha de los turnos</span><input class="i" type="date" id="lsFecha" value="${fecha}"></label>
+      <div class="sub grow">Se encontraron <b>${rows.length}</b> pacientes: <b>${rows.filter(x => !x.ex).length}</b> nuevos y <b>${rows.filter(x => x.ex).length}</b> ya registrados (a esos sólo se les agrega el turno y se completan los datos que falten).</div></div>
+    <div class="lstab"><table><thead><tr><th><input type="checkbox" id="lsAll" checked></th><th>Hora</th><th>Paciente</th><th>DNI</th><th>Cobertura</th><th></th></tr></thead><tbody>
+      ${rows.map((x, i) => `<tr><td><input type="checkbox" data-i="${i}" checked></td><td class="hora">${esc(x.r.hora || '—')}</td>
+        <td><b>${esc(x.r.apellido)}, ${esc(x.r.nombre)}</b>${x.r.nota ? `<div class="sub">${esc(x.r.nota)}</div>` : ''}</td>
+        <td>${esc(fmtDNI(x.r.dni))}</td><td>${esc([x.r.obraSocial, x.r.plan].filter(Boolean).join(' '))}</td>
+        <td>${x.ex ? '<span class="pill">ya existe</span>' : '<span class="pill ok">nuevo</span>'}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="actions sticky nowrap"><button class="btn" id="lsBack">← Volver</button><button class="btn pri" id="lsSave">${ICON.checkW} Guardar <span id="lsN">${rows.length}</span> turnos</button></div>`;
+  modal.scrollTop = 0;
+  const count = () => { $('#lsN').textContent = rows.filter(x => x.on).length; };
+  modal.querySelectorAll('tbody input[type=checkbox]').forEach(cb => cb.onchange = () => { rows[+cb.dataset.i].on = cb.checked; count(); });
+  $('#lsAll').onchange = e => { modal.querySelectorAll('tbody input[type=checkbox]').forEach(cb => { cb.checked = e.target.checked; rows[+cb.dataset.i].on = e.target.checked; }); count(); };
+  $('#lsBack').onclick = () => openLista(text);
+  $('#lsSave').onclick = async () => {
+    const f = $('#lsFecha').value || fecha, sel = rows.filter(x => x.on); if (!sel.length) return toast('No hay pacientes seleccionados');
+    $('#lsSave').disabled = true; let nuevos = 0, turnos = 0;
+    for (const { r } of sel){
+      let p = matchExisting(r); if (!p){ p = newPatient(); nuevos++; }
+      // teléfonos: el celular primero; no se repite un número ya guardado (se comparan los últimos 8 dígitos)
+      const same = (a, b) => a && b && digits(a).slice(-8) === digits(b).slice(-8);
+      for (const t of [r.cel, r.tel].filter(Boolean)){ if (same(t, p.telefono) || same(t, p.telefono2)) continue; if (!p.telefono) p.telefono = t; else if (!p.telefono2) p.telefono2 = t; }
+      const upd = { apellido: r.apellido, nombre: r.nombre, dni: r.dni, obraSocial: [r.obraSocial, r.plan].filter(Boolean).join(' '), nroAfiliado: r.nroAfiliado, sexo: r.sexo, idExterno: r.idExterno };
+      for (const [k, v] of Object.entries(upd)) if (v && !p[k]) p[k] = v;      // completa sin pisar lo que ya tenías
+      if (!p.nacimiento && r.edad) p.edadAprox = { edad: +r.edad, al: f };
+      p.turnos = p.turnos || [];
+      const t = p.turnos.find(t => t.fecha === f && (t.hora || '') === (r.hora || ''));
+      if (t){ if (r.estado === 'atendido' && t.estado === 'pendiente') t.estado = 'atendido'; if (r.nota && !t.nota) t.nota = r.nota; }
+      else { p.turnos.push({ id: uid(), fecha: f, hora: r.hora, motivo: '', nota: r.nota, estado: r.estado, origen: 'lista' }); turnos++; }
+      await savePatient(p);
+    }
+    closeModal(); toast(`Listo: ${turnos} turnos cargados · ${nuevos} pacientes nuevos`, true);
+    App.turnosDate = f; if (App.view === 'turnos') renderTurnos(); else go('home');
+  };
+}
+
 /* ===================== Dictado por voz ===================== */
 const MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>';
 const Dict = {
@@ -1776,6 +1892,7 @@ document.addEventListener('click', async e => {
     case 'import': importBackup(); break;
     case 'chpass': changePass(); break;
     case 'wa': openWhatsApp(); break;
+    case 'lista': openLista(); break;
     case 'close': closeModal(); break;
     case 'mic': Dict.toggle(el); break;
     case 'newp': { const q = (App.view === 'home' && $('#q')) ? $('#q').value.trim() : ''; const pre = {};
