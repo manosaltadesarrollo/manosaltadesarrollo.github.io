@@ -88,6 +88,14 @@ textarea.i{resize:vertical;min-height:90px}
 details summary{cursor:pointer;font-weight:600}
 a{color:var(--pri)}
 #print{display:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:6px 12px;cursor:pointer;font-size:14px;color:var(--ink)}
+.chip.on{background:var(--pri);border-color:var(--pri);color:var(--pri-ink);font-weight:600}
+.steps.tabs span[role=button]{cursor:pointer}
+.certprev{border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:var(--bg);font-family:Georgia,serif;font-size:15px;line-height:1.55}
+.certprev p{margin:0 0 8px;text-align:justify}
+.pdfopts{display:flex;flex-direction:column;gap:8px}
+.pdfopts .pillopt{width:100%}
 .uso{margin:14px 0}
 .uso .row{font-size:15px;gap:8px}
 .uso-barra{height:14px;border-radius:99px;background:var(--line);overflow:hidden;margin:6px 0 4px}
@@ -718,7 +726,7 @@ async function runSyncForm(btn, askConfirm = true){
     if (!code) return fail('Pegá el código de invitación que te mandaron.');
     try { parseInviteCode(code); } catch(e){ return fail(e.message); }
     if (!nom) return fail('Escribí tu nombre como querés que aparezca en la firma.');
-    extra.invite = code; extra.perfil = { nombre: nom, matricula: $('#sMat').value.trim() };
+    extra.invite = code; extra.perfil = { nombre: nom, matricula: $('#sMat').value.trim(), especialidad: 'Especialista en Cirugía de la Mano y Miembro Superior' };
   }
   btn.dataset.label = btn.textContent; btn.disabled = true; btn.textContent = 'Conectando…';
   try { await Sync.connect(email, pass, mode, cfg, extra); App.pendingInvite = ''; return true; } catch(e){ fail(e.message); return false; }
@@ -1919,12 +1927,14 @@ function perfilModal(primeraVez, despues){
     openModal('✍️ Tu firma', `${primeraVez ? '<p class="sub" style="margin-top:0">Las evoluciones ahora salen firmadas por quien las escribe. Indicá cómo querés que aparezca tu firma.</p>' : ''}
       <form id="pfF"><div class="grid2"><label class="f"><span>Nombre para la firma</span><input class="i" id="pfN" value="${esc(pf.nombre || '')}" placeholder="Dr. Nombre Apellido" required></label>
       <label class="f"><span>Matrícula</span><input class="i" id="pfM" value="${esc(pf.matricula || '')}" placeholder="MP 0000"></label></div>
+      <label class="f"><span>Especialidad (para certificados)</span><input class="i" id="pfS" value="${esc(pf.especialidad ?? 'Especialista en Cirugía de la Mano y Miembro Superior')}"></label>
       <div id="pfE" class="alert danger hidden"></div>
       <div class="actions"><button type="button" class="btn" data-act="close">${primeraVez ? 'Más tarde' : 'Cancelar'}</button><button class="btn pri" id="pfOk">Guardar firma</button></div></form>`);
     $('#pfN').focus();
     $('#pfF').onsubmit = async ev => { ev.preventDefault(); const n = $('#pfN').value.trim(); if (!n) return;
-      try { await Sync.savePerfil({ nombre: n, matricula: $('#pfM').value.trim() }); }
-      catch(e){ $('#pfE').textContent = e.message + ' Se guardó en este dispositivo; se reintenta al sincronizar.'; $('#pfE').classList.remove('hidden'); await DB.setMeta('perfil', { nombre: n, matricula: $('#pfM').value.trim() }); return; }
+      const nuevo = { nombre: n, matricula: $('#pfM').value.trim(), especialidad: $('#pfS').value.trim() };
+      try { await Sync.savePerfil(nuevo); }
+      catch(e){ $('#pfE').textContent = e.message + ' Se guardó en este dispositivo; se reintenta al sincronizar.'; $('#pfE').classList.remove('hidden'); await DB.setMeta('perfil', nuevo); return; }
       closeModal(); toast('Firma guardada', true); if (despues) despues(); else if (App.view === 'patient') renderPatient(); };
   });
 }
@@ -2022,6 +2032,330 @@ async function usoPanel(){
 async function revisarUso(){
   const c = await DB.getMeta('uso'); if (c && Date.now() - c.at < 6 * 3600e3) return;
   try { await calcularUso(true); if (App.view === 'home' && !$('#ov')) renderHome(); } catch(_){}
+}
+
+/* ===================== Historia en PDF (imprimir / compartir) =====================
+   En el iPad, una app instalada en la pantalla de inicio no puede imprimir directo:
+   se genera un PDF y se usa el menú Compartir (Imprimir, Guardar en Archivos, WhatsApp, Mail…). */
+const cargarPDFLib = () => Codecs.script('jspdf.umd.min.js', 'jspdf').catch(() => { throw Codecs.fail(); });
+async function generarPDF(p, modo, desde, conAnt){
+  const { jsPDF } = await cargarPDFLib();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, H = 297, M = 18, CW = W - 2 * M; let y = M;
+  // la tipografía estándar del PDF admite tildes y ñ; se reemplazan sólo símbolos especiales
+  const T = s => String(s ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/…/g, '...').replace(/\t/g, '    ').replace(/[^\x00-\xff\n]/g, '');
+  const lh = sz => sz * 0.3528 * 1.4;
+  const ensure = h => { if (y + h > H - 20){ doc.addPage(); y = M; } };
+  const write = (txt, o = {}) => { const { size = 10.5, style = 'normal', color = [30, 30, 30], align = 'left' } = o;
+    doc.setFont('helvetica', style); doc.setFontSize(size); doc.setTextColor(...color);
+    for (const par of T(txt).split('\n')){ const lines = par ? doc.splitTextToSize(par, CW) : [''];
+      for (const ln of lines){ ensure(lh(size)); doc.text(ln, align === 'right' ? W - M : M, y, { align, baseline: 'top' }); y += lh(size); } } };
+  // encabezado
+  const logoH = 11; doc.addImage(LOGOS.logoGris, 'PNG', M, y, logoH * 1048 / 229, logoH);
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(90, 90, 90); doc.text('Historia clínica', W - M, y + 1.5, { align: 'right', baseline: 'top' });
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.text('Emitida el ' + fmtDT(Date.now()), W - M, y + 7, { align: 'right', baseline: 'top' });
+  y += logoH + 4; doc.setDrawColor(190, 190, 190); doc.setLineWidth(0.3); doc.line(M, y, W - M, y); y += 5;
+  // paciente
+  write(fullName(p), { size: 16, style: 'bold', color: [20, 20, 20] }); y += 0.5;
+  const sx = ({ F: 'Femenino', M: 'Masculino' })[p.sexo] || '';
+  write([p.dni ? 'DNI ' + fmtDNI(p.dni) : '', p.nacimiento ? 'Nac. ' + fmtDate(p.nacimiento) + ' (' + edad(p.nacimiento) + ')' : edadAprox(p), sx].filter(Boolean).join('  ·  '), { size: 10, color: [70, 70, 70] });
+  write([p.obraSocial ? p.obraSocial + (p.nroAfiliado ? ' Nº ' + p.nroAfiliado : '') : '', p.telefono ? 'Tel. ' + p.telefono : ''].filter(Boolean).join('  ·  '), { size: 10, color: [70, 70, 70] });
+  y += 2;
+  if (p.alergias) write('ALERGIAS: ' + p.alergias, { style: 'bold', color: [180, 35, 24] });
+  if (conAnt && p.antecedentes){ y += 2; write('Antecedentes', { style: 'bold', size: 11 }); write(p.antecedentes); }
+  if (conAnt && p.medicacion){ y += 2; write('Medicación habitual', { style: 'bold', size: 11 }); write(p.medicacion); }
+  // evoluciones (orden cronológico)
+  let evs = [...(p.evoluciones || [])].sort((a, b) => a.fecha - b.fecha);
+  if (modo === 'ultima') evs = evs.slice(-1);
+  else if (modo === 'desde' && desde) evs = evs.filter(e => isoDate(new Date(e.fecha)) >= desde);
+  y += 4; ensure(14); doc.setDrawColor(218, 93, 48); doc.setLineWidth(0.7); doc.line(M, y, M + 22, y); doc.setLineWidth(0.3); y += 2.5;
+  write(modo === 'ultima' ? 'Evolución' : 'Evoluciones' + (modo === 'desde' && desde ? ' desde el ' + fmtDate(desde) : ''), { size: 12, style: 'bold', color: [105, 73, 151] }); y += 1;
+  if (!evs.length) write('Sin evoluciones en el período elegido.', { color: [120, 120, 120] });
+  for (const e of evs){
+    ensure(lh(10.5) * 3 + 6);
+    write(fmtDT(e.fecha) + (e.editado ? '   (corregida el ' + fmtDT(e.editado) + ')' : ''), { size: 9.5, style: 'bold', color: [80, 80, 80] });
+    write(e.texto);
+    if (e.autor && e.autor.n) write(e.autor.n + (e.autor.m ? ' · ' + e.autor.m : ''), { size: 9.5, style: 'italic', color: [105, 73, 151], align: 'right' });
+    y += 2; doc.setDrawColor(225, 225, 225); doc.line(M, y, W - M, y); y += 4;
+  }
+  // estudios cargados (sólo en la historia completa)
+  const ests = (p.adjuntos || []).filter(a => !a.borrado).sort((a, b) => (a.fecha || '').localeCompare(b.fecha || ''));
+  if (modo === 'todo' && ests.length){ y += 2; write('Estudios en la ficha', { size: 11, style: 'bold' });
+    for (const a of ests) write('•  ' + fmtDate(a.fecha || '') + '   ' + (a.desc || a.nombre), { size: 9.5, color: [60, 60, 60] }); }
+  // pie de página
+  const n = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= n; i++){ doc.setPage(i); doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(130, 130, 130);
+    doc.setDrawColor(225, 225, 225); doc.line(M, H - 14, W - M, H - 14);
+    doc.text(T(fullName(p) + (p.dni ? '  ·  DNI ' + fmtDNI(p.dni) : '')), M, H - 12, { baseline: 'top' });
+    doc.text('Página ' + i + ' de ' + n, W - M, H - 12, { align: 'right', baseline: 'top' });
+    doc.text(T(MARCA.nombre + ' · ' + MARCA.producto), W / 2, H - 12, { align: 'center', baseline: 'top' }); }
+  return { blob: doc.output('blob'), paginas: n, evoluciones: evs.length };
+}
+const pdfName = (pre, p) => (pre + '_' + p.apellido + '_' + p.nombre + '_' + isoDate(new Date())).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '_') + '.pdf';
+function mostrarPDF(blob, name, detalle){
+  const file = new File([blob], name, { type: 'application/pdf' });
+  const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
+  $('#pdfRes').innerHTML = `<div class="alert info">✅ PDF listo${detalle ? ': ' + detalle : ''}.
+    ${canShare ? 'Tocá <b>Compartir / Imprimir</b> y elegí <b>Imprimir</b>, <b>Guardar en Archivos</b>, WhatsApp o Mail.' : ''}</div>
+    <div class="row" style="gap:8px">${canShare ? '<button type="button" class="btn pri" id="pdfShare">📤 Compartir / Imprimir</button>' : ''}<button type="button" class="btn ${canShare ? '' : 'pri'}" id="pdfOpen">🖨️ Abrir para imprimir</button><button type="button" class="btn" id="pdfDown">⬇️ Descargar</button></div>`;
+  if ($('#pdfShare')) $('#pdfShare').onclick = async () => { try { await navigator.share({ files: [file], title: name }); } catch(e){ if (e.name !== 'AbortError') toast('No se pudo compartir: probá con Descargar'); } };
+  $('#pdfOpen').onclick = () => { const u = URL.createObjectURL(blob); const w = window.open(u, '_blank'); if (!w) location.href = u; };
+  $('#pdfDown').onclick = () => downloadBlob(blob, name);
+}
+
+/* ---------- Certificado médico ---------- */
+const fechaLarga = iso => { const [y, m, d] = iso.split('-').map(Number); return `${d} de ${MESES[m - 1]} de ${y}`; };
+const sumarDias = (iso, n) => { const [y, m, d] = iso.split('-').map(Number); return isoDate(new Date(y, m - 1, d + n)); };
+// Arma el texto del certificado (también se muestra como vista previa)
+function textoCertificado(p, c){
+  const F = p.sexo === 'F', M = p.sexo === 'M';
+  const trato = F ? 'la Sra.' : M ? 'el Sr.' : 'el/la paciente';
+  const asistido = F ? 'asistida' : M ? 'asistido' : 'asistido/a';
+  const nombre = [p.nombre, p.apellido].filter(Boolean).join(' ');
+  const partes = [];
+  let t = `Certifico que ${trato} ${nombre}${p.dni ? ', DNI ' + fmtDNI(p.dni) : ''}`;
+  if (c.art) t += `, cobertura ${c.art}${c.siniestro ? ' (siniestro Nº ' + c.siniestro + ')' : ''}`;
+  t += `, fue ${asistido} ${c.fecha === isoDate(new Date()) ? 'en el día de la fecha' : 'el día ' + fmtDate(c.fecha)} por ${c.dx || '__________'}.`;
+  partes.push(t);
+  if (c.tto) partes.push(`Se indica tratamiento: ${c.tto.replace(/\.$/, '')}.`);
+  if (c.ind === 'reposo' && +c.dias > 0){ const desde = c.desde || c.fecha, hasta = sumarDias(desde, +c.dias - 1);
+    partes.push(`Se indica reposo laboral por ${+c.dias} (${numLetras(+c.dias)}) día${+c.dias === 1 ? '' : 's'}, desde el ${fmtDate(desde)} hasta el ${fmtDate(hasta)} inclusive, con control posterior.`); }
+  else if (c.ind === 'continuar') partes.push('Puede continuar con sus tareas habituales.');
+  else if (c.ind === 'alta') partes.push(`Se otorga el alta laboral: puede reintegrarse a sus tareas habituales a partir del ${fmtDate(c.alta || c.fecha)}.`);
+  partes.push(`Se extiende el presente a pedido ${F ? 'de la interesada' : M ? 'del interesado' : 'del/de la interesado/a'} para ser presentado ante quien corresponda.`);
+  return partes;
+}
+function numLetras(n){ const u = ['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte','veintiuno','veintidós','veintitrés','veinticuatro','veinticinco','veintiséis','veintisiete','veintiocho','veintinueve'];
+  if (n < 30) return u[n]; const d = ['', '', '', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa'];
+  if (n < 100) return d[Math.floor(n / 10)] + (n % 10 ? ' y ' + u[n % 10] : ''); return String(n); }
+async function generarCertificado(p, c, pf){
+  const { jsPDF } = await cargarPDFLib();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, H = 297, M = 25, CW = W - 2 * M; let y = 20;
+  const T = s => String(s ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/…/g, '...').replace(/[^\x00-\xff\n]/g, '');
+  const logoH = 13; doc.addImage(LOGOS.logoGris, 'PNG', M, y, logoH * 1048 / 229, logoH);
+  y += logoH + 6; doc.setDrawColor(218, 93, 48); doc.setLineWidth(0.8); doc.line(M, y, W - M, y); y += 16;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(17); doc.setTextColor(30, 30, 30); doc.text('CERTIFICADO MÉDICO', W / 2, y, { align: 'center', baseline: 'top' }); y += 18;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(11.5); doc.setTextColor(60, 60, 60);
+  doc.text(T(`${c.lugar || 'Salta'}, ${fechaLarga(c.emision || isoDate(new Date()))}`), W - M, y, { align: 'right', baseline: 'top' }); y += 16;
+  doc.setFontSize(12.5); doc.setTextColor(25, 25, 25);
+  for (const par of textoCertificado(p, c)){
+    const lines = doc.splitTextToSize(T(par), CW);
+    doc.text(lines, M, y, { baseline: 'top', align: 'justify', maxWidth: CW, lineHeightFactor: 1.6 });
+    y += lines.length * 12.5 * 0.3528 * 1.6 + 6;
+  }
+  // espacio para la firma manuscrita y el sello
+  y = Math.max(y + 30, 200);
+  const cx = W - M - 50;     // centro del bloque de firma (100 mm de ancho)
+  doc.setDrawColor(60, 60, 60); doc.setLineWidth(0.3); doc.line(cx - 38, y, cx + 38, y); y += 4;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(25, 25, 25); doc.text(T(pf.nombre || ''), cx, y, { align: 'center', baseline: 'top' }); y += 6;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(60, 60, 60);
+  if (pf.matricula){ doc.text(T(pf.matricula), cx, y, { align: 'center', baseline: 'top' }); y += 5.2; }
+  if (pf.especialidad){ doc.setFontSize(9.5); const ls = doc.splitTextToSize(T(pf.especialidad), 100); doc.text(ls, cx, y, { align: 'center', baseline: 'top' }); y += ls.length * 4.6; }
+  doc.setFontSize(8); doc.setTextColor(150, 150, 150); doc.text('Firma y sello', cx, y + 3, { align: 'center', baseline: 'top' });
+  doc.setDrawColor(225, 225, 225); doc.line(M, H - 16, W - M, H - 16);
+  doc.text(T(MARCA.nombre + ' · ' + location.hostname.replace(/^www\./, '')), W / 2, H - 13, { align: 'center', baseline: 'top' });
+  return doc.output('blob');
+}
+async function certificadoModal(prev){
+  const p = byId(App.current); if (!p) return;
+  cargarPDFLib().catch(() => {});
+  const pf = (await DB.getMeta('perfil')) || {}, lugar = (await DB.getMeta('ciudadCert')) || 'Salta';
+  const hoy = isoDate(new Date()), esART = /\bART\b|riesgos? del trabajo/i.test(p.obraSocial || '');
+  const ult = (p.certificados || []).slice(-1)[0] || {};
+  const c0 = prev || { fecha: hoy, dx: ult.dx || '', tto: '', ind: esART ? 'reposo' : 'reposo', dias: '', desde: hoy, alta: hoy, art: esART ? p.obraSocial : '', siniestro: ult.siniestro || '' };
+  const certs = (p.certificados || []).slice().reverse();
+  openModal('🖨️ Imprimir o compartir', `
+    ${docTabs('cert')}
+    ${!pf.nombre ? '<div class="alert warn">Primero configurá tu firma (nombre, matrícula y especialidad).</div>' : ''}
+    <form id="ctF">
+      <div class="grid2"><label class="f"><span>Fecha de atención</span><input class="i" type="date" id="ctFecha" value="${c0.fecha}"></label>
+        <label class="f"><span>Lugar</span><input class="i" id="ctLugar" value="${esc(lugar)}"></label></div>
+      <label class="f"><span>Diagnóstico / patología</span><div class="row" style="align-items:flex-start"><div class="grow"><textarea class="i" id="ctDx" style="min-height:64px" placeholder="Ej: fractura de radio distal derecho">${esc(c0.dx)}</textarea><div class="interim" id="interim-ctDx"></div></div><button type="button" class="mic" data-act="mic" data-target="ctDx">${MIC_SVG}</button></div></label>
+      <label class="f"><span>Tratamiento indicado (opcional)</span><div class="row" style="align-items:flex-start"><div class="grow"><textarea class="i" id="ctTto" style="min-height:52px" placeholder="Ej: inmovilización con yeso antebraquipalmar y analgésicos">${esc(c0.tto)}</textarea><div class="interim" id="interim-ctTto"></div></div><button type="button" class="mic" data-act="mic" data-target="ctTto">${MIC_SVG}</button></div></label>
+      <div class="pdfopts" style="margin-bottom:10px">
+        <label class="pillopt"><input type="radio" name="ctInd" value="reposo" ${c0.ind === 'reposo' ? 'checked' : ''}> Reposo laboral por <input class="i" type="number" min="1" max="365" id="ctDias" value="${esc(c0.dias)}" style="width:80px;padding:4px 8px;margin:0 6px"> días, desde <input class="i" type="date" id="ctDesde" value="${c0.desde || hoy}" style="width:auto;padding:4px 8px;margin-left:6px"></label>
+        <label class="pillopt"><input type="radio" name="ctInd" value="continuar" ${c0.ind === 'continuar' ? 'checked' : ''}> Puede continuar con sus tareas habituales</label>
+        <label class="pillopt"><input type="radio" name="ctInd" value="alta" ${c0.ind === 'alta' ? 'checked' : ''}> Alta laboral: reintegro a partir del <input class="i" type="date" id="ctAlta" value="${c0.alta || hoy}" style="width:auto;padding:4px 8px;margin-left:6px"></label>
+        <label class="pillopt"><input type="radio" name="ctInd" value="nada" ${c0.ind === 'nada' ? 'checked' : ''}> Sin indicación laboral</label>
+      </div>
+      <div class="grid2"><label class="f"><span>Cobertura / ART (opcional)</span><input class="i" id="ctArt" value="${esc(c0.art || '')}" placeholder="Ej: ART Swiss Medical"></label>
+        <label class="f"><span>Nº de siniestro (opcional)</span><input class="i" id="ctSin" value="${esc(c0.siniestro || '')}"></label></div>
+      <div class="sub" style="margin:4px 0 6px">Vista previa:</div><div class="certprev" id="ctPrev"></div>
+      <div class="sub" style="margin-top:8px">Firma: <b>${esc(pf.nombre || '—')}</b>${pf.matricula ? ' · ' + esc(pf.matricula) : ''}${pf.especialidad ? ' · ' + esc(pf.especialidad) : ''} · <a href="#" id="ctFirma">editar</a></div>
+      <div id="pdfRes" style="margin-top:10px"></div>
+      <div class="actions"><button type="button" class="btn" data-act="close">Cerrar</button><button class="btn pri" id="ctGo" ${pf.nombre ? '' : 'disabled'}>📝 Generar certificado</button></div>
+    </form>
+    ${certs.length ? `<h4 style="margin:16px 0 6px">Certificados emitidos</h4><ul class="list">${certs.map((x, i) => `<li data-cert="${certs.length - 1 - i}"><div class="grow"><div class="name">${fmtDate(x.emision)} · ${esc(x.dx || '')}</div><div class="sub">${esc(x.resumen || '')} · ${esc((x.autor && x.autor.n) || '')}</div></div><span class="sub">volver a generar ›</span></li>`).join('')}</ul>` : ''}`);
+  const leer = () => ({ fecha: $('#ctFecha').value || hoy, lugar: $('#ctLugar').value.trim() || 'Salta', dx: $('#ctDx').value.trim(), tto: $('#ctTto').value.trim(),
+    ind: $('input[name=ctInd]:checked').value, dias: $('#ctDias').value, desde: $('#ctDesde').value || hoy, alta: $('#ctAlta').value || hoy,
+    art: $('#ctArt').value.trim(), siniestro: $('#ctSin').value.trim(), emision: hoy });
+  const prevw = () => { if (!$('#ctPrev')) return; $('#ctPrev').innerHTML = textoCertificado(p, leer()).map(t => `<p>${esc(t)}</p>`).join(''); };
+  $('#ctF').addEventListener('input', prevw); $('#ctF').addEventListener('change', prevw); prevw();
+  $('#ctDias').onfocus = () => { $('input[name=ctInd][value=reposo]').checked = true; prevw(); };
+  $('#ctAlta').onfocus = () => { $('input[name=ctInd][value=alta]').checked = true; prevw(); };
+  wireDocTabs();
+  $('#ctFirma').onclick = e => { e.preventDefault(); perfilModal(false, () => certificadoModal(leer())); };
+  document.querySelectorAll('[data-cert]').forEach(li => li.onclick = () => { const x = p.certificados[+li.dataset.cert]; certificadoModal({ ...x }); });
+  $('#ctF').onsubmit = async e => { e.preventDefault(); Dict.stop();
+    const c = leer();
+    if (!c.dx) return toast('Escribí el diagnóstico o la patología.');
+    if (c.ind === 'reposo' && !(+c.dias > 0)) return toast('Indicá la cantidad de días de reposo.');
+    const b = $('#ctGo'); b.disabled = true; b.textContent = 'Generando…';
+    try {
+      await DB.setMeta('ciudadCert', c.lugar);
+      const blob = await generarCertificado(p, c, pf);
+      // queda registrado en la ficha (respaldo médico-legal)
+      const resumen = c.ind === 'reposo' ? `Reposo ${c.dias} días desde ${fmtDate(c.desde)}` : c.ind === 'continuar' ? 'Continúa tareas habituales' : c.ind === 'alta' ? `Alta laboral desde ${fmtDate(c.alta)}` : 'Sin indicación laboral';
+      p.certificados = p.certificados || []; p.certificados.push({ id: uid(), ...c, resumen, autor: firmaActual(pf), creado: Date.now() });
+      await savePatient(p);
+      mostrarPDF(blob, pdfName('Certificado', p), resumen);
+      b.disabled = false; b.textContent = '📝 Generar de nuevo';
+    } catch(err){ $('#pdfRes').innerHTML = `<div class="alert danger">${esc(err.message)}</div>`; b.disabled = false; b.textContent = '📝 Generar certificado'; }
+  };
+}
+
+const docTabs = act => `<div class="steps tabs">${[['hc', '📄 Historia'], ['cert', '📝 Certificado'], ['kine', '🏃 Kinesiología']].map(([k, t]) => `<span ${k === act ? 'class="on"' : `data-tab="${k}" role="button"`}>${t}</span>`).join('')}</div>`;
+function wireDocTabs(){ document.querySelectorAll('#ov [data-tab]').forEach(t => t.onclick = () => ({ hc: imprimirModal, cert: () => certificadoModal(), kine: () => kineModal() })[t.dataset.tab]()); }
+
+/* ---------- Pedido de fisiokinesioterapia ---------- */
+const KINE_TIPOS = ['fisiokinesioterapia', 'terapia ocupacional', 'fisiokinesioterapia y terapia ocupacional'];
+const KINE_REG = [['mano', 'f'], ['muñeca', 'f'], ['dedos de la mano', 'm'], ['antebrazo', 'm'], ['codo', 'm'], ['hombro', 'm'], ['miembro superior', 'm']];
+const KINE_BIL = { 'mano': 'ambas manos', 'muñeca': 'ambas muñecas', 'dedos de la mano': 'dedos de ambas manos', 'antebrazo': 'ambos antebrazos', 'codo': 'ambos codos', 'hombro': 'ambos hombros', 'miembro superior': 'ambos miembros superiores' };
+function sectorTexto(reg, lado){ if (lado === 'bil' && KINE_BIL[reg]) return KINE_BIL[reg];
+  if (reg === 'dedos de la mano') return lado === 'der' ? 'dedos de la mano derecha' : lado === 'izq' ? 'dedos de la mano izquierda' : reg;
+  const fem = (KINE_REG.find(r => r[0] === reg) || [reg, 'f'])[1] === 'f';
+  return reg + (lado === 'der' ? (fem ? ' derecha' : ' derecho') : lado === 'izq' ? (fem ? ' izquierda' : ' izquierdo') : ''); }
+function docEncabezado(doc, titulo, lugarFecha){
+  const W = 210, M = 25; let y = 20; const logoH = 13;
+  doc.addImage(LOGOS.logoGris, 'PNG', M, y, logoH * 1048 / 229, logoH);
+  y += logoH + 6; doc.setDrawColor(218, 93, 48); doc.setLineWidth(0.8); doc.line(M, y, W - M, y); y += 12;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(30, 30, 30); doc.text(titulo, W / 2, y, { align: 'center', baseline: 'top' }); y += 13;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(60, 60, 60); doc.text(lugarFecha, W - M, y, { align: 'right', baseline: 'top' });
+  return y + 10;
+}
+function docFirma(doc, y, pf, T){
+  const W = 210, M = 25, cx = W - M - 50;
+  doc.setDrawColor(60, 60, 60); doc.setLineWidth(0.3); doc.line(cx - 38, y, cx + 38, y); y += 4;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(25, 25, 25); doc.text(T(pf.nombre || ''), cx, y, { align: 'center', baseline: 'top' }); y += 6;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(60, 60, 60);
+  if (pf.matricula){ doc.text(T(pf.matricula), cx, y, { align: 'center', baseline: 'top' }); y += 5.2; }
+  if (pf.especialidad){ doc.setFontSize(9.5); const ls = doc.splitTextToSize(T(pf.especialidad), 100); doc.text(ls, cx, y, { align: 'center', baseline: 'top' }); y += ls.length * 4.6; }
+  doc.setFontSize(8); doc.setTextColor(150, 150, 150); doc.text('Firma y sello', cx, y + 3, { align: 'center', baseline: 'top' });
+  doc.setDrawColor(225, 225, 225); doc.line(M, 297 - 16, W - M, 297 - 16);
+  doc.text(T(MARCA.nombre + ' · ' + location.hostname.replace(/^www\./, '')), W / 2, 297 - 13, { align: 'center', baseline: 'top' });
+}
+async function generarPedidoKine(p, k, pf){
+  const { jsPDF } = await cargarPDFLib();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, M = 25, CW = W - 2 * M;
+  const T = s => String(s ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/…/g, '...').replace(/[^\x00-\xff\n]/g, '');
+  let y = docEncabezado(doc, k.tipo === 'terapia ocupacional' ? 'PEDIDO DE TERAPIA OCUPACIONAL' : 'PEDIDO DE FISIOKINESIOTERAPIA', T(`${k.lugar || 'Salta'}, ${fechaLarga(k.fecha)}`));
+  // datos del paciente en un recuadro
+  const filas = [['Paciente', fullName(p)], ['DNI', p.dni ? fmtDNI(p.dni) : ''], ['Edad', p.nacimiento ? edad(p.nacimiento) : edadAprox(p)],
+                 ['Obra social', p.obraSocial || ''], ['Nº de afiliado', p.nroAfiliado || '']].filter(r => r[1]);
+  const bh = filas.length * 6.6 + 5; doc.setDrawColor(205, 205, 205); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, bh, 2, 2); let yy = y + 4;
+  for (const [k1, v] of filas){ doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(90, 90, 90); doc.text(k1 + ':', M + 5, yy, { baseline: 'top' });
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(25, 25, 25); doc.text(T(v), M + 38, yy, { baseline: 'top' }); yy += 6.6; }
+  y += bh + 11;
+  const campo = (titulo, txt, size = 12.5) => {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(90, 90, 90); doc.text(titulo, M, y, { baseline: 'top' }); y += 6.5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(size); doc.setTextColor(25, 25, 25);
+    const ls = doc.splitTextToSize(T(txt), CW); doc.text(ls, M, y, { baseline: 'top', lineHeightFactor: 1.45 }); y += ls.length * size * 0.3528 * 1.45 + 7; };
+  campo('Solicito:', `${k.tipo.charAt(0).toUpperCase() + k.tipo.slice(1)} de ${k.sector}.`, 13.5);
+  campo('Cantidad de sesiones:', `${+k.sesiones} (${numLetras(+k.sesiones)}) sesiones.`);
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  campo('Diagnóstico:', cap(k.dx));
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(90, 90, 90); doc.text('Indicaciones / observaciones:', M, y, { baseline: 'top' }); y += 6.5;
+  if (k.obs){ doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.setTextColor(25, 25, 25); const ls = doc.splitTextToSize(T(cap(k.obs)), CW); doc.text(ls, M, y, { baseline: 'top', lineHeightFactor: 1.45 }); y += ls.length * 12 * 0.3528 * 1.45 + 6; }
+  else { doc.setDrawColor(200, 200, 200); for (let i = 0; i < 3; i++){ y += 8; doc.line(M, y, W - M, y); } y += 6; }   // renglones para escribir a mano
+  docFirma(doc, Math.max(y + 28, 222), pf, T);
+  return doc.output('blob');
+}
+async function kineModal(prev){
+  const p = byId(App.current); if (!p) return;
+  cargarPDFLib().catch(() => {});
+  const pf = (await DB.getMeta('perfil')) || {}, lugar = (await DB.getMeta('ciudadCert')) || 'Salta', hoy = isoDate(new Date());
+  const ult = (p.pedidos || []).filter(x => x.tipoDoc === 'kine').slice(-1)[0] || {};
+  const ultCert = (p.certificados || []).slice(-1)[0] || {};
+  const k0 = prev || { fecha: hoy, tipo: ult.tipo || KINE_TIPOS[0], reg: ult.reg || 'mano', lado: ult.lado || 'der', sector: ult.sector || '', sesiones: ult.sesiones || 8, dx: ult.dx || ultCert.dx || '', obs: '' };
+  const peds = (p.pedidos || []).filter(x => x.tipoDoc === 'kine').slice().reverse();
+  openModal('🖨️ Imprimir o compartir', `
+    ${docTabs('kine')}
+    ${!pf.nombre ? '<div class="alert warn">Primero configurá tu firma (nombre, matrícula y especialidad).</div>' : ''}
+    <div class="sub" style="margin:-4px 0 10px">${esc(fullName(p))}${p.dni ? ' · DNI ' + esc(fmtDNI(p.dni)) : ''}${p.obraSocial ? ' · ' + esc(p.obraSocial) : ''}${p.nroAfiliado ? ' Nº ' + esc(p.nroAfiliado) : ''}</div>
+    <form id="kF">
+      <div class="grid2"><label class="f"><span>Fecha</span><input class="i" type="date" id="kFecha" value="${k0.fecha}"></label>
+        <label class="f"><span>Solicito</span><select class="i" id="kTipo">${KINE_TIPOS.map(t => `<option ${t === k0.tipo ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
+      <label class="f"><span>Región</span><div class="chips" id="kReg">${KINE_REG.map(([r]) => `<button type="button" class="chip ${r === k0.reg ? 'on' : ''}" data-reg="${r}">${r}</button>`).join('')}</div></label>
+      <label class="f"><span>Lado</span><div class="chips" id="kLado">${[['der', 'Derecho'], ['izq', 'Izquierdo'], ['bil', 'Bilateral'], ['', 'Sin lado']].map(([v, t]) => `<button type="button" class="chip ${v === k0.lado ? 'on' : ''}" data-lado="${v}">${t}</button>`).join('')}</div></label>
+      <label class="f"><span>Sector (se completa solo; podés corregirlo)</span><input class="i" id="kSector" value="${esc(k0.sector)}"></label>
+      <label class="f"><span>Cantidad de sesiones</span><div class="row" style="gap:6px"><input class="i" type="number" min="1" max="99" id="kSes" value="${esc(k0.sesiones)}" style="width:90px">
+        <div class="chips">${[5, 8, 10, 15, 20].map(n => `<button type="button" class="chip" data-ses="${n}">${n}</button>`).join('')}</div></div></label>
+      <label class="f"><span>Diagnóstico</span><div class="row" style="align-items:flex-start"><div class="grow"><textarea class="i" id="kDx" style="min-height:60px" placeholder="Ej: postoperatorio de tenorrafia flexora 2º dedo mano derecha">${esc(k0.dx)}</textarea><div class="interim" id="interim-kDx"></div></div><button type="button" class="mic" data-act="mic" data-target="kDx">${MIC_SVG}</button></div></label>
+      <label class="f"><span>Indicaciones / observaciones (opcional; si lo dejás vacío salen renglones para escribir a mano)</span><div class="row" style="align-items:flex-start"><div class="grow"><textarea class="i" id="kObs" style="min-height:52px" placeholder="Ej: movilidad activa y pasiva, desensibilización, 2 a 3 veces por semana">${esc(k0.obs)}</textarea><div class="interim" id="interim-kObs"></div></div><button type="button" class="mic" data-act="mic" data-target="kObs">${MIC_SVG}</button></div></label>
+      <div class="sub" style="margin:4px 0 6px">Vista previa:</div><div class="certprev" id="kPrev"></div>
+      <div class="sub" style="margin-top:8px">Firma: <b>${esc(pf.nombre || '—')}</b>${pf.matricula ? ' · ' + esc(pf.matricula) : ''}${pf.especialidad ? ' · ' + esc(pf.especialidad) : ''} · <a href="#" id="kFirma">editar</a></div>
+      <div id="pdfRes" style="margin-top:10px"></div>
+      <div class="actions"><button type="button" class="btn" data-act="close">Cerrar</button><button class="btn pri" id="kGo" ${pf.nombre ? '' : 'disabled'}>🏃 Generar pedido</button></div>
+    </form>
+    ${peds.length ? `<h4 style="margin:16px 0 6px">Pedidos emitidos</h4><ul class="list">${peds.map(x => `<li data-ped="${x.id}"><div class="grow"><div class="name">${fmtDate(x.fecha)} · ${esc(x.sesiones)} sesiones · ${esc(x.sector)}</div><div class="sub">${esc(x.dx || '')} · ${esc((x.autor && x.autor.n) || '')}</div></div><span class="sub">volver a generar ›</span></li>`).join('')}</ul>` : ''}`);
+  let reg = k0.reg, lado = k0.lado, manual = !!k0.sector && k0.sector !== sectorTexto(k0.reg, k0.lado);
+  const setSector = () => { if (!manual) $('#kSector').value = sectorTexto(reg, lado); };
+  const leer = () => ({ fecha: $('#kFecha').value || hoy, lugar, tipo: $('#kTipo').value, reg, lado, sector: $('#kSector').value.trim(), sesiones: $('#kSes').value, dx: $('#kDx').value.trim(), obs: $('#kObs').value.trim() });
+  const prevw = () => { if (!$('#kPrev')) return; const k = leer();
+    $('#kPrev').innerHTML = `<p><b>Solicito:</b> ${esc(k.tipo.charAt(0).toUpperCase() + k.tipo.slice(1))} de ${esc(k.sector || '…')}.</p><p><b>Sesiones:</b> ${+k.sesiones || '…'}${+k.sesiones ? ' (' + numLetras(+k.sesiones) + ')' : ''}.</p><p><b>Diagnóstico:</b> ${esc(k.dx || '…')}</p>${k.obs ? `<p><b>Indicaciones:</b> ${esc(k.obs)}</p>` : ''}`; };
+  setSector(); prevw();
+  $('#kReg').onclick = e => { const b = e.target.closest('[data-reg]'); if (!b) return; reg = b.dataset.reg; manual = false; $('#kReg').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === b)); setSector(); prevw(); };
+  $('#kLado').onclick = e => { const b = e.target.closest('[data-lado]'); if (!b) return; lado = b.dataset.lado; manual = false; $('#kLado').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === b)); setSector(); prevw(); };
+  document.querySelectorAll('[data-ses]').forEach(b => b.onclick = () => { $('#kSes').value = b.dataset.ses; prevw(); });
+  $('#kSector').oninput = () => { manual = true; prevw(); };
+  $('#kF').addEventListener('input', prevw); $('#kF').addEventListener('change', prevw);
+  wireDocTabs();
+  $('#kFirma').onclick = e => { e.preventDefault(); perfilModal(false, () => kineModal(leer())); };
+  document.querySelectorAll('[data-ped]').forEach(li => li.onclick = () => { const x = p.pedidos.find(y => y.id === li.dataset.ped); kineModal({ ...x, fecha: hoy }); });
+  $('#kF').onsubmit = async e => { e.preventDefault(); Dict.stop();
+    const k = leer();
+    if (!k.sector) return toast('Indicá el sector (región y lado).');
+    if (!(+k.sesiones > 0)) return toast('Indicá la cantidad de sesiones.');
+    if (!k.dx) return toast('Escribí el diagnóstico.');
+    const b = $('#kGo'); b.disabled = true; b.textContent = 'Generando…';
+    try {
+      const blob = await generarPedidoKine(p, k, pf);
+      p.pedidos = p.pedidos || []; p.pedidos.push({ id: uid(), tipoDoc: 'kine', ...k, autor: firmaActual(pf), creado: Date.now() });
+      await savePatient(p);
+      mostrarPDF(blob, pdfName('Pedido_kinesio', p), `${+k.sesiones} sesiones de ${k.sector}`);
+      b.disabled = false; b.textContent = '🏃 Generar de nuevo';
+    } catch(err){ $('#pdfRes').innerHTML = `<div class="alert danger">${esc(err.message)}</div>`; b.disabled = false; b.textContent = '🏃 Generar pedido'; }
+  };
+}
+
+function imprimirModal(){
+  const p = byId(App.current); if (!p) return;
+  cargarPDFLib().catch(() => {});      // se precarga mientras se eligen las opciones
+  const n = (p.evoluciones || []).length;
+  openModal('🖨️ Imprimir o compartir', `
+    ${docTabs('hc')}
+    <p class="sub" style="margin-top:0">Se genera un PDF de la historia de <b>${esc(fullName(p))}</b> para imprimir, guardar o enviar.</p>
+    <div class="pdfopts">
+      <label class="pillopt"><input type="radio" name="pdfModo" value="todo" checked> Toda la historia (${n} evoluci${n === 1 ? 'ón' : 'ones'})</label>
+      <label class="pillopt"><input type="radio" name="pdfModo" value="ultima" ${n ? '' : 'disabled'}> Sólo la última evolución</label>
+      <label class="pillopt"><input type="radio" name="pdfModo" value="desde"> Desde el <input class="i" type="date" id="pdfDesde" style="width:auto;padding:4px 8px;margin-left:6px"></label>
+    </div>
+    <label class="row" style="margin:10px 0"><input type="checkbox" id="pdfAnt" checked style="width:20px;height:20px"> Incluir antecedentes y medicación</label>
+    <div id="pdfRes"></div>
+    <div class="actions"><button class="btn" data-act="close">Cerrar</button><button class="btn pri" id="pdfGo">📄 Generar PDF</button></div>`);
+  $('#pdfDesde').onfocus = () => { $('input[name=pdfModo][value=desde]').checked = true; };
+  wireDocTabs();
+  $('#pdfGo').onclick = async () => {
+    const b = $('#pdfGo'); b.disabled = true; b.textContent = 'Generando…';
+    try {
+      const modo = $('input[name=pdfModo]:checked').value;
+      const r = await generarPDF(p, modo, $('#pdfDesde').value, $('#pdfAnt').checked);
+      mostrarPDF(r.blob, pdfName('HC', p), `${r.paginas} página${r.paginas === 1 ? '' : 's'}, ${r.evoluciones} evoluci${r.evoluciones === 1 ? 'ón' : 'ones'}`);
+      b.textContent = '📄 Generar de nuevo'; b.disabled = false; b.classList.remove('pri');
+    } catch(e){ $('#pdfRes').innerHTML = `<div class="alert danger">${esc(e.message)}</div>`; b.disabled = false; b.textContent = '📄 Generar PDF'; }
+  };
 }
 
 /* ===================== Dictado por voz ===================== */
@@ -2130,6 +2464,8 @@ function mergePatients(a, b){
   out.evoluciones = union('evoluciones').sort((x,y) => x.fecha - y.fecha);
   out.turnos = union('turnos');
   out.adjuntos = union('adjuntos');
+  out.pedidos = union('pedidos').sort((x, y) => (x.creado || 0) - (y.creado || 0));
+  out.certificados = union('certificados').sort((x, y) => (x.creado || 0) - (y.creado || 0));
   return out;
 }
 function changePass(){
@@ -2215,7 +2551,7 @@ document.addEventListener('click', async e => {
     case 'newturno': turnoForm(byId(App.current)); break;
     case 'saveevo': saveEvo(); break;
     case 'editevo': editEvo(el.dataset.eid); break;
-    case 'print': printPatient(); break;
+    case 'print': imprimirModal(); break;
     case 'pacs': openPacs(); break;
     case 'pacscfg': pacsConfig(); break;
     case 'pacs-del': el.closest('.pacsrow').remove(); break;
