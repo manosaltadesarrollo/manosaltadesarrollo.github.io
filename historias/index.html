@@ -1156,11 +1156,19 @@ const CODEC_DIR = 'codecs/';
 const Codecs = {
   p: {},
   script(file, glob){ return new Promise((res, rej) => { if (window[glob]) return res(window[glob]); const s = document.createElement('script'); s.src = CODEC_DIR + file;
-    s.onload = () => window[glob] ? res(window[glob]) : rej(new Error('x')); s.onerror = () => rej(new Error('x')); document.head.appendChild(s); }); },
-  fail(){ return new Error(location.protocol === 'https:' ? 'No se pudo cargar el decodificador de imágenes. Revisá la conexión y volvé a intentar.' : 'Para ver este formato, abrí la app desde mano-historias.netlify.app.'); },
-  lossless(){ return this.p.ll || (this.p.ll = import(new URL(CODEC_DIR + 'lossless.js', location.href).href).catch(() => { this.p.ll = null; throw this.fail(); })); },
-  charls(){ return this.p.ls || (this.p.ls = this.script('charlswasm_decode.js', 'CharLSWASM').then(f => f({ locateFile: x => CODEC_DIR + x })).catch(() => { this.p.ls = null; throw this.fail(); })); },
-  j2k(){ return this.p.j2 || (this.p.j2 = this.script('openjpegwasm_decode.js', 'OpenJPEGWASM').then(f => f({ locateFile: x => CODEC_DIR + x })).catch(() => { this.p.j2 = null; throw this.fail(); })); },
+    s.onload = () => window[glob] ? res(window[glob]) : rej(new Error(file + ' no se inicializó')); s.onerror = () => rej(new Error('no se pudo descargar ' + file)); document.head.appendChild(s); }); },
+  withTimeout(p, ms, what){ return Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(what + ': tiempo agotado')), ms))]); },
+  fail(...errs){ const d = errs.map(e => e && (e.message || String(e))).filter(Boolean).join(' / ');
+    return new Error((location.protocol === 'https:' ? 'No se pudo cargar el decodificador de imágenes.' : 'Para ver este formato, abrí la app desde su dirección web.') + (d ? ' (Detalle: ' + d + ')' : '')); },
+  // Primero la versión rápida (WebAssembly); si el navegador la bloquea, la versión en JavaScript puro
+  async emscripten(wasmFile, wasmGlob, jsFile, jsGlob){
+    const opts = { locateFile: x => CODEC_DIR + x };
+    try { const f = await this.script(wasmFile, wasmGlob); return await this.withTimeout(f(opts), 20000, wasmFile); }
+    catch(e1){ try { const f = await this.script(jsFile, jsGlob); return await this.withTimeout(f(opts), 30000, jsFile); } catch(e2){ throw this.fail(e1, e2); } }
+  },
+  lossless(){ return this.p.ll || (this.p.ll = this.script('lossless-classic.js', 'JpegLossless').catch(e => { this.p.ll = null; throw this.fail(e); })); },
+  charls(){ return this.p.ls || (this.p.ls = this.emscripten('charlswasm_decode.js', 'CharLSWASM', 'charlsjs_decode.js', 'CharLS').catch(e => { this.p.ls = null; throw e; })); },
+  j2k(){ return this.p.j2 || (this.p.j2 = this.emscripten('openjpegwasm_decode.js', 'OpenJPEGWASM', 'openjpegjs_decode.js', 'OpenJPEGJS').catch(e => { this.p.j2 = null; throw e; })); },
 };
 const TS = {
   raw: ['1.2.840.10008.1.2', '1.2.840.10008.1.2.1', undefined, ''],
@@ -1170,7 +1178,7 @@ const TS = {
   j2k: ['1.2.840.10008.1.2.4.90', '1.2.840.10008.1.2.4.91', '1.2.840.10008.1.2.4.201', '1.2.840.10008.1.2.4.202', '1.2.840.10008.1.2.4.203'],
   rle: ['1.2.840.10008.1.2.5'],
 };
-const TS_NAME = { '1.2.840.10008.1.2.4.51': 'JPEG extendido 12 bits', '1.2.840.10008.1.2.2': 'Big Endian', '1.2.840.10008.1.2.1.99': 'Deflate', '1.2.840.10008.1.2.4.100': 'MPEG2 (video)', '1.2.840.10008.1.2.4.102': 'MPEG4 (video)', '1.2.840.10008.1.2.4.103': 'MPEG4 (video)' };
+const TS_NAME = { '1.2.840.10008.1.2.4.57': 'JPEG sin pérdida', '1.2.840.10008.1.2.4.70': 'JPEG sin pérdida (SV1)', '1.2.840.10008.1.2.4.80': 'JPEG-LS', '1.2.840.10008.1.2.4.81': 'JPEG-LS casi sin pérdida', '1.2.840.10008.1.2.4.90': 'JPEG 2000 sin pérdida', '1.2.840.10008.1.2.4.91': 'JPEG 2000', '1.2.840.10008.1.2.5': 'RLE', '1.2.840.10008.1.2.4.50': 'JPEG', '1.2.840.10008.1.2.4.51': 'JPEG extendido 12 bits', '1.2.840.10008.1.2.2': 'Big Endian', '1.2.840.10008.1.2.1.99': 'Deflate', '1.2.840.10008.1.2.4.100': 'MPEG2 (video)', '1.2.840.10008.1.2.4.102': 'MPEG4 (video)', '1.2.840.10008.1.2.4.103': 'MPEG4 (video)' };
 function nFrames(m){ return Math.max(1, parseInt(m.frames) || 1); }
 // Fragmentos de un cuadro en datos encapsulados (comprimidos)
 function frameBytes(buf, m, f){
@@ -1206,6 +1214,10 @@ async function wasmDecode(mod, Cls, bytes){
 }
 // Devuelve { kind:'gray', data(Float32), w, h, wc, ww, inv } o { kind:'bitmap', bmp, w, h }
 async function dicomImage(buf, meta, frame){
+  try { return await dicomImageRaw(buf, meta, frame); }
+  catch(e){ const m = meta || {}; const n = TS_NAME[m.ts]; throw new Error(n && !e.message.includes(n) ? `${e.message} — formato ${n}` : e.message); }
+}
+async function dicomImageRaw(buf, meta, frame){
   const m = meta || parseDicom(buf); if (!m.pixel || !m.rows || !m.cols) throw new Error('El archivo no tiene imagen.');
   const w = m.cols, h = m.rows, n = w * h, bits = m.bits || 16, spp = m.muestras || 1, signed = !!m.signo, nf = nFrames(m);
   const f = frame == null ? Math.floor((nf - 1) / 2) : Math.min(frame, nf - 1);
@@ -1218,7 +1230,7 @@ async function dicomImage(buf, meta, frame){
     const bmp = await createImageBitmap(new Blob([frameBytes(buf, m, f)], { type: 'image/jpeg' }));
     return { kind: 'bitmap', bmp, w: bmp.width, h: bmp.height };
   } else if (TS.lossless.includes(m.ts)){
-    const L = await Codecs.lossless(), fr = frameBytes(buf, m, f);
+    const L = await Codecs.lossless(), fr = frameBytes(buf, m, f);   // window.JpegLossless
     const o = new L.Decoder().decode(fr.buffer, fr.byteOffset, fr.byteLength, bits > 8 ? 2 : 1);
     const u8 = new Uint8Array(o.buffer, o.byteOffset, o.byteLength);
     if (spp === 3) rgb = u8; else px = typed(u8, bits, signed);
