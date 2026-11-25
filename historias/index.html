@@ -88,6 +88,11 @@ textarea.i{resize:vertical;min-height:90px}
 details summary{cursor:pointer;font-weight:600}
 a{color:var(--pri)}
 #print{display:none}
+.uso{margin:14px 0}
+.uso .row{font-size:15px;gap:8px}
+.uso-barra{height:14px;border-radius:99px;background:var(--line);overflow:hidden;margin:6px 0 4px}
+.uso-barra div{height:100%;border-radius:99px;transition:width .4s}
+.uso-barra .verde{background:#12b76a}.uso-barra .naranja{background:#f79009}.uso-barra .rojo{background:#d92d20}
 .luz{width:12px;height:12px;border-radius:50%;flex:none;display:inline-block}
 .luz.espera{background:#f79009;box-shadow:0 0 0 3px rgba(247,144,9,.22);animation:titila 1.6s ease-in-out infinite}
 .luz.atendido{background:#12b76a;box-shadow:0 0 0 3px rgba(18,183,106,.2)}
@@ -620,6 +625,23 @@ const Sync = {
     }
     const rec = { id: a.id, chunks }; await DB.putFile(rec); return rec;
   },
+  // Suma lo que ocupan en el servidor los estudios del equipo (carpeta de cada integrante)
+  async storageUsage(){
+    try { await this.loadMembers(); } catch(_){}     // incluir a quienes se sumaron hace poco
+    const dirs = [...new Set([this.sess.user_id, ...this.members.map(m => m.id)].filter(Boolean))];
+    let total = 0, n = 0;
+    for (const d of dirs){
+      for (let off = 0; ; off += 1000){
+        let r; try { r = await fetch(this.cfg.url + '/storage/v1/object/list/adjuntos', { method: 'POST', headers: { apikey: this.cfg.anon, Authorization: 'Bearer ' + await this.token(), 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prefix: d, limit: 1000, offset: off, sortBy: { column: 'name', order: 'asc' } }) }); } catch(_){ throw new Error('Sin conexión'); }
+        if (!r.ok) throw new Error('Error ' + r.status);
+        const items = await r.json();
+        for (const it of items){ const sz = it.metadata && (it.metadata.size || it.metadata.contentLength); if (sz){ total += +sz; n++; } }
+        if (items.length < 1000) break;
+      }
+    }
+    return { total, n };
+  },
   async refetch(id){ const r = await this.rest('GET', `registros?select=id,box,rev&equipo_id=eq.${this.eq.id}&id=eq.${encodeURIComponent(id)}`); if (r.ok && r.data[0]) await this.applyRemote(r.data[0]); },
   async markClean(rec, rev){ const cur = await DB.get(rec.id); if (!cur) return; cur.rev = rev; if (cur.lv === rec.lv) cur.dirty = false; await DB.put(cur); },
   /* Cambio de clave maestra con la cuenta conectada: sólo se re-cifra la copia de la clave de datos */
@@ -783,6 +805,7 @@ async function startApp(){
   <div id="menu" class="menu hidden">
     <button data-act="sync">🌐 Sincronización entre dispositivos</button>
     <button data-act="equipo">👥 Equipo y firma</button>
+    <button data-act="uso">📊 Espacio usado</button>
     <button data-act="export">💾 Descargar respaldo cifrado</button>
     <button data-act="import">📂 Restaurar / importar respaldo</button>
     <button data-act="chpass">🔑 Cambiar clave maestra</button>
@@ -800,6 +823,7 @@ async function startApp(){
   await Sync.sync();
   if (App.pendingInvite && Sync.eq) { App.pendingInvite = ''; toast('Este dispositivo ya está conectado a un equipo.'); }
   if (!(await DB.getMeta('perfil')) && KEY && !$('#ov')) perfilModal(true);
+  revisarUso();
 }
 function syncPanel(){
   if (!Sync.sess || Sync.paused){
@@ -817,6 +841,7 @@ function syncPanel(){
     <p style="margin-top:0">Cuenta: <b>${esc(Sync.email)}</b></p>
     <p>Estado: <b>${esc($('#syncBtn') ? $('#syncBtn').title : '')}</b><br>
     ${Sync.lastOk ? 'Última sincronización: ' + fmtDT(Sync.lastOk) + '<br>' : ''}Cambios pendientes de subir: <b>${Sync.pending}</b></p>
+    <p><button class="btn sm" data-act="uso">📊 Ver espacio usado</button></p>
     <div class="alert info">Todo se guarda primero en este dispositivo, así que podés trabajar sin internet: los cambios se suben solos cuando vuelve la conexión.</div>
     <div class="actions"><button class="btn danger" id="sDisc">Desconectar este dispositivo</button><button class="btn" data-act="close">Cerrar</button><button class="btn pri" id="sNow">Sincronizar ahora</button></div>`);
   $('#sNow').onclick = async () => { $('#sNow').disabled = true; Sync.lastReconcile = 0; await Sync.sync(); closeModal(); toast(Sync.status === "ok" ? "Sincronizado" : Sync.detail || "No se pudo sincronizar", Sync.status === "ok"); };
@@ -838,7 +863,10 @@ function go(view, id){
 async function renderHome(){
   const last = await DB.getMeta('lastBackup');
   const needBackup = App.patients.length && (!last || Date.now() - last > 7*864e5);
+  const uso = await DB.getMeta('uso'), plan = await planActual();
+  const pctUso = uso ? Math.max(uso.db / plan.db, uso.files / plan.files) * 100 : 0;
   $('#main').innerHTML = `
+  ${pctUso >= 80 ? `<div class="alert ${pctUso >= 95 ? 'danger' : 'warn'} row"><span class="grow">📊 El espacio del servidor está al <b>${Math.round(pctUso)}%</b>${uso.files / plan.files >= uso.db / plan.db ? ' (estudios e imágenes)' : ' (fichas)'}.</span><button class="btn sm" data-act="uso">Ver detalle</button></div>` : ''}
   ${needBackup ? `<div class="alert warn row"><span class="grow">⚠️ ${last ? 'Hace más de 7 días que no descargás un respaldo.' : 'Todavía no descargaste ningún respaldo.'}</span><button class="btn sm" data-act="export">Descargar respaldo</button></div>` : ''}
   <div class="search"><input id="q" type="search" placeholder="🔎 Buscar: apellido, nombre, DNI, teléfono, obra social…" autocomplete="off" enterkeyhint="search"></div>
   <div id="results"></div>`;
@@ -1953,6 +1981,49 @@ async function crearInvitacion(){
   $('#invBack').onclick = teamPanel;
 }
 
+/* ===================== Espacio usado ===================== */
+const PLANES = { gratis: { nombre: 'Gratuito', db: 500e6, files: 1e9 }, pro: { nombre: 'Pro', db: 8e9, files: 100e9 } };
+const fmtBytes = n => n >= 1e9 ? (n / 1e9).toFixed(n >= 1e10 ? 0 : 1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(n >= 1e8 ? 0 : 1) + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' KB';
+async function planActual(){ return PLANES[(await DB.getMeta('plan')) || 'gratis'] || PLANES.gratis; }
+async function calcularUso(remoto = true){
+  let db = 0; for (const r of await DB.all()) db += JSON.stringify(r.box).length;   // lo que ocupa cada ficha cifrada
+  const ests = []; let filesLocal = 0;
+  for (const p of App.patients) for (const a of (p.adjuntos || [])){ const sz = (a.size || 0) + 28 * (a.nchunks || 1); filesLocal += sz; ests.push({ p, a, sz }); }
+  let files = filesLocal, fuente = 'dispositivo';
+  if (remoto && Sync.enabled() && Sync.eq && navigator.onLine){ try { files = (await Sync.storageUsage()).total; fuente = 'servidor'; } catch(_){} }
+  db = Math.round(db * 1.15);    // margen por índices y estructura de la base de datos
+  const u = { db, files, fuente, at: Date.now(), pacientes: App.patients.length, estudios: ests.length,
+    top: ests.sort((x, y) => y.sz - x.sz).slice(0, 5).map(x => ({ pid: x.p.id, pac: fullName(x.p), nombre: x.a.desc || x.a.nombre, fecha: x.a.fecha, sz: x.sz, quitado: !!x.a.borrado })) };
+  await DB.setMeta('uso', { db: u.db, files: u.files, at: u.at, fuente });
+  return u;
+}
+function barraUso(titulo, usado, limite, detalle){
+  const pct = Math.min(100, usado / limite * 100), cls = pct >= 85 ? 'rojo' : pct >= 60 ? 'naranja' : 'verde';
+  return `<div class="uso"><div class="row"><b class="grow">${titulo}</b><span><b>${fmtBytes(usado)}</b> de ${fmtBytes(limite)} · <b>${pct < 1 && usado ? '<1' : Math.round(pct)}%</b></span></div>
+    <div class="uso-barra"><div class="${cls}" style="width:${Math.max(pct, usado ? 1 : 0)}%"></div></div><div class="sub">${detalle}</div></div>`;
+}
+async function usoPanel(){
+  openModal('📊 Espacio usado', '<div class="sub">Calculando…</div>');
+  const u = await calcularUso(true), plan = await planActual(), key = (await DB.getMeta('plan')) || 'gratis';
+  if (!$('#ov')) return;
+  const maxPct = Math.max(u.db / plan.db, u.files / plan.files) * 100;
+  $('#ov .modal').innerHTML = `<h3>📊 Espacio usado</h3>
+    <label class="f" style="max-width:320px"><span>Plan de Supabase</span><select class="i" id="usoPlan">${Object.entries(PLANES).map(([k, p]) => `<option value="${k}" ${k === key ? 'selected' : ''}>${p.nombre} (${fmtBytes(p.db)} fichas · ${fmtBytes(p.files)} estudios)</option>`).join('')}</select></label>
+    ${barraUso('📋 Fichas, evoluciones y turnos', u.db, plan.db, `${u.pacientes} pacientes · cálculo aproximado`)}
+    ${barraUso('🩻 Estudios e imágenes', u.files, plan.files, `${u.estudios} estudios · ${u.fuente === 'servidor' ? 'medido en el servidor (tuyos y de tu equipo)' : 'calculado con lo que hay en este dispositivo'}`)}
+    ${maxPct >= 60 ? `<div class="alert warn">Te estás acercando al límite. Opciones: ver las tomografías y resonancias completas en el PACS (🏥 Ver en PACS) y guardar en la ficha sólo una foto de la imagen clave, o pasar al plan Pro de Supabase.</div>` : `<div class="alert info">Tenés espacio de sobra. Lo que más ocupa son las tomografías y resonancias completas.</div>`}
+    ${u.top.length ? `<h4 style="margin:14px 0 6px">Los estudios más pesados</h4><ul class="list">${u.top.map(t => `<li data-uso-pid="${t.pid}"><div class="grow"><div class="name">${esc(t.nombre)}${t.quitado ? ' <span class="pill warn">quitado</span>' : ''}</div><div class="sub">${esc(t.pac)} · ${fmtDate(t.fecha || '')}</div></div><b>${fmtBytes(t.sz)}</b></li>`).join('')}</ul>` : ''}
+    <p class="sub">Para ver el dato exacto: Supabase → tu organización → <b>Usage</b>. Los estudios quitados de una ficha siguen ocupando espacio en el servidor.</p>
+    <div class="actions"><button class="btn" data-act="close">Cerrar</button></div>`;
+  $('#usoPlan').onchange = async e => { await DB.setMeta('plan', e.target.value); usoPanel(); if (App.view === 'home') renderHome(); };
+  document.querySelectorAll('[data-uso-pid]').forEach(li => li.onclick = () => { closeModal(); go('patient', li.dataset.usoPid); });
+}
+// Recalcula el uso como mucho cada 6 horas (después de sincronizar), para el aviso de la pantalla de inicio
+async function revisarUso(){
+  const c = await DB.getMeta('uso'); if (c && Date.now() - c.at < 6 * 3600e3) return;
+  try { await calcularUso(true); if (App.view === 'home' && !$('#ov')) renderHome(); } catch(_){}
+}
+
 /* ===================== Dictado por voz ===================== */
 const MIC_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5M8 22h8"/></svg>';
 const Dict = {
@@ -2125,6 +2196,7 @@ document.addEventListener('click', async e => {
     case 'menu': $('#menu').classList.toggle('hidden'); break;
     case 'lock': lock(); break;
     case 'equipo': teamPanel(); break;
+    case 'uso': usoPanel(); break;
     case 'tog-estado': togEstado(el.dataset.pid, el.dataset.tid); break;
     case 'sync': syncPanel(); break;
     case 'help': help(); break;
