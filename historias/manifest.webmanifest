@@ -1,0 +1,17 @@
+{
+  "name": "M.A.N.O · Historias Clínicas",
+  "short_name": "M.A.N.O",
+  "description": "Historias clínicas con dictado por voz, turnos desde WhatsApp y estudios.",
+  "lang": "es-AR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f6f4f9",
+  "theme_color": "#694997",
+  "icons": [
+    { "src": "icono-app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icono-app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icono-app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
