@@ -88,6 +88,9 @@ textarea.i{resize:vertical;min-height:90px}
 details summary{cursor:pointer;font-weight:600}
 a{color:var(--pri)}
 #print{display:none}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:6px 12px;cursor:pointer;font-size:14px;color:var(--ink)}
+.chip.on{background:var(--pri);border-color:var(--pri);color:var(--pri-ink);font-weight:600}
 .steps.tabs span[role=button]{cursor:pointer}
 .certprev{border:1px solid var(--line);border-radius:10px;padding:10px 14px;background:var(--bg);font-family:Georgia,serif;font-size:15px;line-height:1.55}
 .certprev p{margin:0 0 8px;text-align:justify}
@@ -2163,7 +2166,7 @@ async function certificadoModal(prev){
   const c0 = prev || { fecha: hoy, dx: ult.dx || '', tto: '', ind: esART ? 'reposo' : 'reposo', dias: '', desde: hoy, alta: hoy, art: esART ? p.obraSocial : '', siniestro: ult.siniestro || '' };
   const certs = (p.certificados || []).slice().reverse();
   openModal('🖨️ Imprimir o compartir', `
-    <div class="steps tabs"><span data-tab="hc" role="button">📄 Historia clínica</span><span class="on">📝 Certificado</span></div>
+    ${docTabs('cert')}
     ${!pf.nombre ? '<div class="alert warn">Primero configurá tu firma (nombre, matrícula y especialidad).</div>' : ''}
     <form id="ctF">
       <div class="grid2"><label class="f"><span>Fecha de atención</span><input class="i" type="date" id="ctFecha" value="${c0.fecha}"></label>
@@ -2191,7 +2194,7 @@ async function certificadoModal(prev){
   $('#ctF').addEventListener('input', prevw); $('#ctF').addEventListener('change', prevw); prevw();
   $('#ctDias').onfocus = () => { $('input[name=ctInd][value=reposo]').checked = true; prevw(); };
   $('#ctAlta').onfocus = () => { $('input[name=ctInd][value=alta]').checked = true; prevw(); };
-  $('[data-tab=hc]').onclick = () => imprimirModal();
+  wireDocTabs();
   $('#ctFirma').onclick = e => { e.preventDefault(); perfilModal(false, () => certificadoModal(leer())); };
   document.querySelectorAll('[data-cert]').forEach(li => li.onclick = () => { const x = p.certificados[+li.dataset.cert]; certificadoModal({ ...x }); });
   $('#ctF').onsubmit = async e => { e.preventDefault(); Dict.stop();
@@ -2212,12 +2215,127 @@ async function certificadoModal(prev){
   };
 }
 
+const docTabs = act => `<div class="steps tabs">${[['hc', '📄 Historia'], ['cert', '📝 Certificado'], ['kine', '🏃 Kinesiología']].map(([k, t]) => `<span ${k === act ? 'class="on"' : `data-tab="${k}" role="button"`}>${t}</span>`).join('')}</div>`;
+function wireDocTabs(){ document.querySelectorAll('#ov [data-tab]').forEach(t => t.onclick = () => ({ hc: imprimirModal, cert: () => certificadoModal(), kine: () => kineModal() })[t.dataset.tab]()); }
+
+/* ---------- Pedido de fisiokinesioterapia ---------- */
+const KINE_TIPOS = ['fisiokinesioterapia', 'terapia ocupacional', 'fisiokinesioterapia y terapia ocupacional'];
+const KINE_REG = [['mano', 'f'], ['muñeca', 'f'], ['dedos de la mano', 'm'], ['antebrazo', 'm'], ['codo', 'm'], ['hombro', 'm'], ['miembro superior', 'm']];
+const KINE_BIL = { 'mano': 'ambas manos', 'muñeca': 'ambas muñecas', 'dedos de la mano': 'dedos de ambas manos', 'antebrazo': 'ambos antebrazos', 'codo': 'ambos codos', 'hombro': 'ambos hombros', 'miembro superior': 'ambos miembros superiores' };
+function sectorTexto(reg, lado){ if (lado === 'bil' && KINE_BIL[reg]) return KINE_BIL[reg];
+  if (reg === 'dedos de la mano') return lado === 'der' ? 'dedos de la mano derecha' : lado === 'izq' ? 'dedos de la mano izquierda' : reg;
+  const fem = (KINE_REG.find(r => r[0] === reg) || [reg, 'f'])[1] === 'f';
+  return reg + (lado === 'der' ? (fem ? ' derecha' : ' derecho') : lado === 'izq' ? (fem ? ' izquierda' : ' izquierdo') : ''); }
+function docEncabezado(doc, titulo, lugarFecha){
+  const W = 210, M = 25; let y = 20; const logoH = 13;
+  doc.addImage(LOGOS.logoGris, 'PNG', M, y, logoH * 1048 / 229, logoH);
+  y += logoH + 6; doc.setDrawColor(218, 93, 48); doc.setLineWidth(0.8); doc.line(M, y, W - M, y); y += 12;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16); doc.setTextColor(30, 30, 30); doc.text(titulo, W / 2, y, { align: 'center', baseline: 'top' }); y += 13;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(11); doc.setTextColor(60, 60, 60); doc.text(lugarFecha, W - M, y, { align: 'right', baseline: 'top' });
+  return y + 10;
+}
+function docFirma(doc, y, pf, T){
+  const W = 210, M = 25, cx = W - M - 50;
+  doc.setDrawColor(60, 60, 60); doc.setLineWidth(0.3); doc.line(cx - 38, y, cx + 38, y); y += 4;
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(25, 25, 25); doc.text(T(pf.nombre || ''), cx, y, { align: 'center', baseline: 'top' }); y += 6;
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(60, 60, 60);
+  if (pf.matricula){ doc.text(T(pf.matricula), cx, y, { align: 'center', baseline: 'top' }); y += 5.2; }
+  if (pf.especialidad){ doc.setFontSize(9.5); const ls = doc.splitTextToSize(T(pf.especialidad), 100); doc.text(ls, cx, y, { align: 'center', baseline: 'top' }); y += ls.length * 4.6; }
+  doc.setFontSize(8); doc.setTextColor(150, 150, 150); doc.text('Firma y sello', cx, y + 3, { align: 'center', baseline: 'top' });
+  doc.setDrawColor(225, 225, 225); doc.line(M, 297 - 16, W - M, 297 - 16);
+  doc.text(T(MARCA.nombre + ' · ' + location.hostname.replace(/^www\./, '')), W / 2, 297 - 13, { align: 'center', baseline: 'top' });
+}
+async function generarPedidoKine(p, k, pf){
+  const { jsPDF } = await cargarPDFLib();
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const W = 210, M = 25, CW = W - 2 * M;
+  const T = s => String(s ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/…/g, '...').replace(/[^\x00-\xff\n]/g, '');
+  let y = docEncabezado(doc, k.tipo === 'terapia ocupacional' ? 'PEDIDO DE TERAPIA OCUPACIONAL' : 'PEDIDO DE FISIOKINESIOTERAPIA', T(`${k.lugar || 'Salta'}, ${fechaLarga(k.fecha)}`));
+  // datos del paciente en un recuadro
+  const filas = [['Paciente', fullName(p)], ['DNI', p.dni ? fmtDNI(p.dni) : ''], ['Edad', p.nacimiento ? edad(p.nacimiento) : edadAprox(p)],
+                 ['Obra social', p.obraSocial || ''], ['Nº de afiliado', p.nroAfiliado || '']].filter(r => r[1]);
+  const bh = filas.length * 6.6 + 5; doc.setDrawColor(205, 205, 205); doc.setLineWidth(0.3); doc.roundedRect(M, y, CW, bh, 2, 2); let yy = y + 4;
+  for (const [k1, v] of filas){ doc.setFont('helvetica', 'bold'); doc.setFontSize(10.5); doc.setTextColor(90, 90, 90); doc.text(k1 + ':', M + 5, yy, { baseline: 'top' });
+    doc.setFont('helvetica', 'normal'); doc.setTextColor(25, 25, 25); doc.text(T(v), M + 38, yy, { baseline: 'top' }); yy += 6.6; }
+  y += bh + 11;
+  const campo = (titulo, txt, size = 12.5) => {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(90, 90, 90); doc.text(titulo, M, y, { baseline: 'top' }); y += 6.5;
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(size); doc.setTextColor(25, 25, 25);
+    const ls = doc.splitTextToSize(T(txt), CW); doc.text(ls, M, y, { baseline: 'top', lineHeightFactor: 1.45 }); y += ls.length * size * 0.3528 * 1.45 + 7; };
+  campo('Solicito:', `${k.tipo.charAt(0).toUpperCase() + k.tipo.slice(1)} de ${k.sector}.`, 13.5);
+  campo('Cantidad de sesiones:', `${+k.sesiones} (${numLetras(+k.sesiones)}) sesiones.`);
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  campo('Diagnóstico:', cap(k.dx));
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(90, 90, 90); doc.text('Indicaciones / observaciones:', M, y, { baseline: 'top' }); y += 6.5;
+  if (k.obs){ doc.setFont('helvetica', 'normal'); doc.setFontSize(12); doc.setTextColor(25, 25, 25); const ls = doc.splitTextToSize(T(cap(k.obs)), CW); doc.text(ls, M, y, { baseline: 'top', lineHeightFactor: 1.45 }); y += ls.length * 12 * 0.3528 * 1.45 + 6; }
+  else { doc.setDrawColor(200, 200, 200); for (let i = 0; i < 3; i++){ y += 8; doc.line(M, y, W - M, y); } y += 6; }   // renglones para escribir a mano
+  docFirma(doc, Math.max(y + 28, 222), pf, T);
+  return doc.output('blob');
+}
+async function kineModal(prev){
+  const p = byId(App.current); if (!p) return;
+  cargarPDFLib().catch(() => {});
+  const pf = (await DB.getMeta('perfil')) || {}, lugar = (await DB.getMeta('ciudadCert')) || 'Salta', hoy = isoDate(new Date());
+  const ult = (p.pedidos || []).filter(x => x.tipoDoc === 'kine').slice(-1)[0] || {};
+  const ultCert = (p.certificados || []).slice(-1)[0] || {};
+  const k0 = prev || { fecha: hoy, tipo: ult.tipo || KINE_TIPOS[0], reg: ult.reg || 'mano', lado: ult.lado || 'der', sector: ult.sector || '', sesiones: ult.sesiones || 8, dx: ult.dx || ultCert.dx || '', obs: '' };
+  const peds = (p.pedidos || []).filter(x => x.tipoDoc === 'kine').slice().reverse();
+  openModal('🖨️ Imprimir o compartir', `
+    ${docTabs('kine')}
+    ${!pf.nombre ? '<div class="alert warn">Primero configurá tu firma (nombre, matrícula y especialidad).</div>' : ''}
+    <div class="sub" style="margin:-4px 0 10px">${esc(fullName(p))}${p.dni ? ' · DNI ' + esc(fmtDNI(p.dni)) : ''}${p.obraSocial ? ' · ' + esc(p.obraSocial) : ''}${p.nroAfiliado ? ' Nº ' + esc(p.nroAfiliado) : ''}</div>
+    <form id="kF">
+      <div class="grid2"><label class="f"><span>Fecha</span><input class="i" type="date" id="kFecha" value="${k0.fecha}"></label>
+        <label class="f"><span>Solicito</span><select class="i" id="kTipo">${KINE_TIPOS.map(t => `<option ${t === k0.tipo ? 'selected' : ''}>${t}</option>`).join('')}</select></label></div>
+      <label class="f"><span>Región</span><div class="chips" id="kReg">${KINE_REG.map(([r]) => `<button type="button" class="chip ${r === k0.reg ? 'on' : ''}" data-reg="${r}">${r}</button>`).join('')}</div></label>
+      <label class="f"><span>Lado</span><div class="chips" id="kLado">${[['der', 'Derecho'], ['izq', 'Izquierdo'], ['bil', 'Bilateral'], ['', 'Sin lado']].map(([v, t]) => `<button type="button" class="chip ${v === k0.lado ? 'on' : ''}" data-lado="${v}">${t}</button>`).join('')}</div></label>
+      <label class="f"><span>Sector (se completa solo; podés corregirlo)</span><input class="i" id="kSector" value="${esc(k0.sector)}"></label>
+      <label class="f"><span>Cantidad de sesiones</span><div class="row" style="gap:6px"><input class="i" type="number" min="1" max="99" id="kSes" value="${esc(k0.sesiones)}" style="width:90px">
+        <div class="chips">${[5, 8, 10, 15, 20].map(n => `<button type="button" class="chip" data-ses="${n}">${n}</button>`).join('')}</div></div></label>
+      <label class="f"><span>Diagnóstico</span><div class="row" style="align-items:flex-start"><div class="grow"><textarea class="i" id="kDx" style="min-height:60px" placeholder="Ej: postoperatorio de tenorrafia flexora 2º dedo mano derecha">${esc(k0.dx)}</textarea><div class="interim" id="interim-kDx"></div></div><button type="button" class="mic" data-act="mic" data-target="kDx">${MIC_SVG}</button></div></label>
+      <label class="f"><span>Indicaciones / observaciones (opcional; si lo dejás vacío salen renglones para escribir a mano)</span><div class="row" style="align-items:flex-start"><div class="grow"><textarea class="i" id="kObs" style="min-height:52px" placeholder="Ej: movilidad activa y pasiva, desensibilización, 2 a 3 veces por semana">${esc(k0.obs)}</textarea><div class="interim" id="interim-kObs"></div></div><button type="button" class="mic" data-act="mic" data-target="kObs">${MIC_SVG}</button></div></label>
+      <div class="sub" style="margin:4px 0 6px">Vista previa:</div><div class="certprev" id="kPrev"></div>
+      <div class="sub" style="margin-top:8px">Firma: <b>${esc(pf.nombre || '—')}</b>${pf.matricula ? ' · ' + esc(pf.matricula) : ''}${pf.especialidad ? ' · ' + esc(pf.especialidad) : ''} · <a href="#" id="kFirma">editar</a></div>
+      <div id="pdfRes" style="margin-top:10px"></div>
+      <div class="actions"><button type="button" class="btn" data-act="close">Cerrar</button><button class="btn pri" id="kGo" ${pf.nombre ? '' : 'disabled'}>🏃 Generar pedido</button></div>
+    </form>
+    ${peds.length ? `<h4 style="margin:16px 0 6px">Pedidos emitidos</h4><ul class="list">${peds.map(x => `<li data-ped="${x.id}"><div class="grow"><div class="name">${fmtDate(x.fecha)} · ${esc(x.sesiones)} sesiones · ${esc(x.sector)}</div><div class="sub">${esc(x.dx || '')} · ${esc((x.autor && x.autor.n) || '')}</div></div><span class="sub">volver a generar ›</span></li>`).join('')}</ul>` : ''}`);
+  let reg = k0.reg, lado = k0.lado, manual = !!k0.sector && k0.sector !== sectorTexto(k0.reg, k0.lado);
+  const setSector = () => { if (!manual) $('#kSector').value = sectorTexto(reg, lado); };
+  const leer = () => ({ fecha: $('#kFecha').value || hoy, lugar, tipo: $('#kTipo').value, reg, lado, sector: $('#kSector').value.trim(), sesiones: $('#kSes').value, dx: $('#kDx').value.trim(), obs: $('#kObs').value.trim() });
+  const prevw = () => { if (!$('#kPrev')) return; const k = leer();
+    $('#kPrev').innerHTML = `<p><b>Solicito:</b> ${esc(k.tipo.charAt(0).toUpperCase() + k.tipo.slice(1))} de ${esc(k.sector || '…')}.</p><p><b>Sesiones:</b> ${+k.sesiones || '…'}${+k.sesiones ? ' (' + numLetras(+k.sesiones) + ')' : ''}.</p><p><b>Diagnóstico:</b> ${esc(k.dx || '…')}</p>${k.obs ? `<p><b>Indicaciones:</b> ${esc(k.obs)}</p>` : ''}`; };
+  setSector(); prevw();
+  $('#kReg').onclick = e => { const b = e.target.closest('[data-reg]'); if (!b) return; reg = b.dataset.reg; manual = false; $('#kReg').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === b)); setSector(); prevw(); };
+  $('#kLado').onclick = e => { const b = e.target.closest('[data-lado]'); if (!b) return; lado = b.dataset.lado; manual = false; $('#kLado').querySelectorAll('.chip').forEach(c => c.classList.toggle('on', c === b)); setSector(); prevw(); };
+  document.querySelectorAll('[data-ses]').forEach(b => b.onclick = () => { $('#kSes').value = b.dataset.ses; prevw(); });
+  $('#kSector').oninput = () => { manual = true; prevw(); };
+  $('#kF').addEventListener('input', prevw); $('#kF').addEventListener('change', prevw);
+  wireDocTabs();
+  $('#kFirma').onclick = e => { e.preventDefault(); perfilModal(false, () => kineModal(leer())); };
+  document.querySelectorAll('[data-ped]').forEach(li => li.onclick = () => { const x = p.pedidos.find(y => y.id === li.dataset.ped); kineModal({ ...x, fecha: hoy }); });
+  $('#kF').onsubmit = async e => { e.preventDefault(); Dict.stop();
+    const k = leer();
+    if (!k.sector) return toast('Indicá el sector (región y lado).');
+    if (!(+k.sesiones > 0)) return toast('Indicá la cantidad de sesiones.');
+    if (!k.dx) return toast('Escribí el diagnóstico.');
+    const b = $('#kGo'); b.disabled = true; b.textContent = 'Generando…';
+    try {
+      const blob = await generarPedidoKine(p, k, pf);
+      p.pedidos = p.pedidos || []; p.pedidos.push({ id: uid(), tipoDoc: 'kine', ...k, autor: firmaActual(pf), creado: Date.now() });
+      await savePatient(p);
+      mostrarPDF(blob, pdfName('Pedido_kinesio', p), `${+k.sesiones} sesiones de ${k.sector}`);
+      b.disabled = false; b.textContent = '🏃 Generar de nuevo';
+    } catch(err){ $('#pdfRes').innerHTML = `<div class="alert danger">${esc(err.message)}</div>`; b.disabled = false; b.textContent = '🏃 Generar pedido'; }
+  };
+}
+
 function imprimirModal(){
   const p = byId(App.current); if (!p) return;
   cargarPDFLib().catch(() => {});      // se precarga mientras se eligen las opciones
   const n = (p.evoluciones || []).length;
   openModal('🖨️ Imprimir o compartir', `
-    <div class="steps tabs"><span class="on">📄 Historia clínica</span><span data-tab="cert" role="button">📝 Certificado</span></div>
+    ${docTabs('hc')}
     <p class="sub" style="margin-top:0">Se genera un PDF de la historia de <b>${esc(fullName(p))}</b> para imprimir, guardar o enviar.</p>
     <div class="pdfopts">
       <label class="pillopt"><input type="radio" name="pdfModo" value="todo" checked> Toda la historia (${n} evoluci${n === 1 ? 'ón' : 'ones'})</label>
@@ -2228,7 +2346,7 @@ function imprimirModal(){
     <div id="pdfRes"></div>
     <div class="actions"><button class="btn" data-act="close">Cerrar</button><button class="btn pri" id="pdfGo">📄 Generar PDF</button></div>`);
   $('#pdfDesde').onfocus = () => { $('input[name=pdfModo][value=desde]').checked = true; };
-  $('[data-tab=cert]').onclick = () => certificadoModal();
+  wireDocTabs();
   $('#pdfGo').onclick = async () => {
     const b = $('#pdfGo'); b.disabled = true; b.textContent = 'Generando…';
     try {
@@ -2346,6 +2464,7 @@ function mergePatients(a, b){
   out.evoluciones = union('evoluciones').sort((x,y) => x.fecha - y.fecha);
   out.turnos = union('turnos');
   out.adjuntos = union('adjuntos');
+  out.pedidos = union('pedidos').sort((x, y) => (x.creado || 0) - (y.creado || 0));
   out.certificados = union('certificados').sort((x, y) => (x.creado || 0) - (y.creado || 0));
   return out;
 }
