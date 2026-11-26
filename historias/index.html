@@ -2150,7 +2150,7 @@ function mostrarPDFs(docs){
   $('#pdfRes').innerHTML = `<div class="alert info">✅ ${docs.length > 1 ? docs.length + ' documentos listos, para presentar por separado.' : 'PDF listo.'}
     ${canShare([files[0]]) ? ' Con <b>Compartir / Imprimir</b> elegís <b>Imprimir</b>, <b>Guardar en Archivos</b>, WhatsApp o Mail.' : ''}</div>
     ${docs.map((d, i) => `<div class="pdfdoc"><div class="name">📄 ${esc(d.label)}</div><div class="row" style="gap:8px;margin-top:6px">${canShare([files[i]]) ? `<button type="button" class="btn pri" data-sh="${i}">📤 Compartir / Imprimir</button>` : ''}<button type="button" class="btn ${canShare([files[i]]) ? '' : 'pri'}" data-op="${i}">🖨️ Abrir</button><button type="button" class="btn" data-dl="${i}">⬇️ Descargar</button></div></div>`).join('')}
-    ${todos ? '<button type="button" class="btn" id="pdfShareAll" style="margin-top:8px">📤 Compartir los dos juntos</button>' : ''}`;
+    ${todos ? `<button type="button" class="btn" id="pdfShareAll" style="margin-top:8px">📤 Compartir ${docs.length === 2 ? 'los dos' : 'los ' + docs.length} juntos</button>` : ''}`;
   const share = async f => { try { await navigator.share({ files: f }); } catch(e){ if (e.name !== 'AbortError') toast('No se pudo compartir: probá con Descargar'); } };
   document.querySelectorAll('#pdfRes [data-sh]').forEach(b => b.onclick = () => share([files[+b.dataset.sh]]));
   document.querySelectorAll('#pdfRes [data-op]').forEach(b => b.onclick = () => { const u = URL.createObjectURL(docs[+b.dataset.op].blob); const w = window.open(u, '_blank'); if (!w) location.href = u; });
@@ -2605,6 +2605,25 @@ async function generarPedidoMateriales(p, k, pf){
   if (k.institucion){ d.titulo('Institución:'); d.texto(k.institucion); }
   return d.firma();
 }
+// Estudios prequirúrgicos que salen automáticamente con cada pedido de cirugía
+const PREQX = {
+  ecg: { titulo: 'PEDIDO DE ESTUDIOS PREQUIRÚRGICOS', label: 'Electrocardiograma y valoración cardiológica', archivo: 'Pedido_ECG_valoracion',
+         items: ['Electrocardiograma (ECG)', 'Valoración cardiológica prequirúrgica (riesgo quirúrgico)'] },
+  lab: { titulo: 'PEDIDO DE LABORATORIO PREQUIRÚRGICO', label: 'Análisis de sangre prequirúrgico', archivo: 'Pedido_laboratorio',
+         items: ['Hemograma completo', 'Coagulograma', 'Glucemia', 'Eritrosedimentación (VSG)', 'Proteína C reactiva (PCR)'] }
+};
+async function generarPedidoPrequirurgico(p, k, pf, tipo){
+  const t = PREQX[tipo];
+  const d = await docA5(pf, t.titulo, `${k.lugarFirma || 'Salta'}, ${fechaLarga(k.fecha)}`);
+  d.caja(docFilasCir(p, k));
+  d.titulo('Solicito:');
+  for (const it of t.items){ d.salto(6); d.doc.setFont('helvetica', 'bold'); d.doc.setFontSize(11); d.doc.setTextColor(...VIOLETA); d.doc.text('•', d.M + 1.5, d.y, { baseline: 'top' });
+    d.texto(it, { sz: 10.4, bold: true, x: d.M + 6, w: d.CW - 6, lh: 1.3, after: 0.8 }); }
+  d.y += 2.5;
+  d.titulo('Diagnóstico:'); d.texto(docDx(k), { after: 3 });
+  d.titulo('Motivo:'); d.texto(`Evaluación prequirúrgica (cirugía programada: ${k.practicas.map(i => i.c).join(' + ')}).`, { sz: 9.6, lh: 1.35 });
+  return d.firma();
+}
 async function cirPedidoModal(prev){
   const p = byId(App.current); if (!p) return;
   cargarPDFLib().catch(() => {});
@@ -2629,6 +2648,9 @@ async function cirPedidoModal(prev){
         <input class="i" type="number" min="1" max="60" id="qDias" value="${esc(k.dias)}" style="width:70px;padding:4px 8px"> días</div></label>
       <label class="f"><span>Institución</span><input class="i" id="qInst" value="${esc(k.institucion)}" placeholder="Ej: Hospital Privado"></label>
       <label class="f"><span>Fundamentación (opcional)</span><div class="row" style="align-items:flex-start"><div class="grow"><textarea class="i" id="qFund" style="min-height:48px">${esc(k.fund)}</textarea><div class="interim" id="interim-qFund"></div></div><button type="button" class="mic" data-act="mic" data-target="qFund">${MIC_SVG}</button></div></label>
+      <div class="f"><span class="lbl">Pedidos prequirúrgicos (salen automáticamente con la cirugía)</span><div class="pdfopts">
+        <label class="pillopt"><input type="checkbox" id="qEcg" ${k.preEcg !== false ? 'checked' : ''}> Electrocardiograma y valoración cardiológica</label>
+        <label class="pillopt"><input type="checkbox" id="qLab" ${k.preLab !== false ? 'checked' : ''}> Laboratorio: hemograma, coagulograma, glucemia, eritrosedimentación y PCR</label></div></div>
       <div class="sub" style="margin-top:8px">Firma: <b>${esc(pf.nombre || '—')}</b>${pf.matricula ? ' · ' + esc(pf.matricula) : ''} · <a href="#" id="qFirma">editar</a></div>
       <div id="pdfRes" style="margin-top:10px"></div>
       <div class="actions"><button type="button" class="btn" data-act="close">Cerrar</button><button class="btn pri" id="qGo" ${pf.nombre ? '' : 'disabled'}>🏥 Generar pedido</button></div>
@@ -2651,6 +2673,8 @@ async function cirPedidoModal(prev){
       const blob = await generarPedidoCirugia(p, k, pf);
       const docs = [{ blob, name: pdfName('Pedido_cirugia', p), label: 'Solicitud de autorización quirúrgica · ' + k.practicas.map(i => i.c).join(' + ') }];
       if (k.materiales) docs.push({ blob: await generarPedidoMateriales(p, k, pf), name: pdfName('Pedido_materiales', p), label: 'Pedido de materiales / implantes' });
+      k.preEcg = $('#qEcg').checked; k.preLab = $('#qLab').checked;
+      for (const [on, tipo] of [[k.preEcg, 'ecg'], [k.preLab, 'lab']]) if (on) docs.push({ blob: await generarPedidoPrequirurgico(p, k, pf, tipo), name: pdfName(PREQX[tipo].archivo, p), label: PREQX[tipo].label });
       p.pedidos = p.pedidos || []; p.pedidos.push({ id: uid(), tipoDoc: 'cirugia', ...JSON.parse(JSON.stringify(k)), autor: firmaActual(pf), creado: Date.now() });
       await savePatient(p);
       mostrarPDFs(docs);
