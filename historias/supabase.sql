@@ -85,6 +85,12 @@ create policy "adjuntos: subir propios" on storage.objects
   for insert to authenticated
   with check (bucket_id = 'adjuntos' and (storage.foldername(name))[1] = auth.uid()::text);
 
+-- Borrar archivos propios (documentos vencidos y archivos quitados de la ficha)
+drop policy if exists "adjuntos: borrar propios" on storage.objects;
+create policy "adjuntos: borrar propios" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'adjuntos' and (storage.foldername(name))[1] = auth.uid()::text);
+
 drop policy if exists "adjuntos: actualizar propios" on storage.objects;
 create policy "adjuntos: actualizar propios" on storage.objects
   for update to authenticated

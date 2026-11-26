@@ -273,6 +273,7 @@ const DB = {
   putMany(recs){ return this.tx('patients', 'readwrite', s => { recs.forEach(r => s.put(r)); }); },
   getFile(id){ return this.tx('files', 'readonly', s => s.get(id)); },
   putFile(rec){ return this.tx('files', 'readwrite', s => s.put(rec)); },
+  delFile(id){ return this.tx('files', 'readwrite', s => s.delete(id)); },
   pendingFiles(){ return this.tx('files', 'readonly', s => s.index('pend').getAllKeys()); },
 };
 
@@ -623,6 +624,13 @@ const Sync = {
     }
     return conflicts;
   },
+  async deleteFiles(lista){   // lista de adjuntos propios → true si el servidor los borró
+    const prefixes = lista.flatMap(a => Array.from({ length: a.nchunks || 1 }, (_, n) => `${this.sess.user_id}/${a.id}.${n}`));
+    if (!prefixes.length) return new Set();
+    let r; try { r = await fetch(this.cfg.url + '/storage/v1/object/adjuntos', { method: 'DELETE', headers: { apikey: this.cfg.anon, Authorization: 'Bearer ' + await this.token(), 'Content-Type': 'application/json' }, body: JSON.stringify({ prefixes }) }); } catch(_){ return new Set(); }
+    if (!r.ok) return new Set();
+    const out = await r.json().catch(() => []); return new Set((out || []).map(x => String(x.name || '').split('/').pop().replace(/\.\d+$/, '')));
+  },
   storagePath(id, n, dir){ return `adjuntos/${dir || this.sess.user_id}/${id}.${n}`; },
   async uploadFiles(){
     if (!this.sess.user_id) return;
@@ -858,6 +866,7 @@ async function startApp(){
   if (!(await DB.getMeta('perfil')) && Sync.enabled() && Sync.eq){ try { await Sync.loadMembers(); } catch(_){} }
   if (!(await DB.getMeta('perfil')) && KEY && !$('#ov')) perfilModal(true);
   revisarUso();
+  limpiarArchivos().catch(() => {});
 }
 function syncPanel(){
   if (!Sync.sess || Sync.paused){
@@ -1735,7 +1744,7 @@ async function openAdj(aid){
       <button class="btn" id="adjSave">Guardar</button>
     </div>`);
   $('#adjSave').onclick = async () => { a.desc = $('#adjDesc').value.trim(); a.fecha = $('#adjFecha').value || a.fecha; await savePatient(p); closeModal(); renderPatient(); toast('Guardado', true); };
-  $('#adjDel').onclick = async () => { if (!confirm('¿Quitar este archivo de la ficha?')) return; a.borrado = Date.now(); await savePatient(p); closeModal(); renderPatient(); };
+  $('#adjDel').onclick = async () => { if (!confirm('¿Quitar este archivo de la ficha? Se borra definitivamente, también del servidor.')) return; a.borrado = Date.now(); await savePatient(p); closeModal(); renderPatient(); limpiarArchivos(true).catch(() => {}); };
   let blob = null;
   const view = $('#adjView');
   const load = async () => { if (blob) return blob; blob = await getFileBlob(a, pct => { if (view) view.innerHTML = `<div class="sub">Descargando ${pct}%…</div>`; }); return blob; };
@@ -2152,6 +2161,27 @@ async function generarPDF(p, modo, desde, conAnt){
   return { blob: doc.output('blob'), paginas: n, evoluciones: evs.length };
 }
 const pdfName = (pre, p) => (pre + '_' + p.apellido + '_' + p.nombre + '_' + isoDate(new Date())).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '_') + '.pdf';
+const DOC_VENCE = 90 * 864e5;   // 3 meses sin abrir ni compartir
+async function limpiarArchivos(forzar){
+  if (!forzar){ const u = await DB.getMeta('limpiezaAt'); if (u && Date.now() - u < 864e5) return; }
+  await DB.setMeta('limpiezaAt', Date.now());
+  const yo = Sync.sess && Sync.sess.user_id, cambios = new Set(), propios = [];
+  for (const p of App.patients) for (const a of (p.adjuntos || [])){
+    if (a.doc && !a.borrado && Date.now() - (a.usado || a.agregado || 0) > DOC_VENCE){ a.borrado = Date.now(); a.vencido = true; cambios.add(p); }
+    if (a.borrado && !a.purgado){
+      const f = await DB.getFile(a.id);
+      if (f && f.pend){ await DB.delFile(a.id); a.purgado = true; cambios.add(p); continue; }   // nunca se subió: alcanza con borrarlo acá
+      if (f) await DB.delFile(a.id);
+      if (!a.dir || a.dir === yo) propios.push([p, a]);
+    }
+  }
+  if (propios.length && Sync.enabled() && navigator.onLine){
+    for (let i = 0; i < propios.length; i += 100){ const lote = propios.slice(i, i + 100), ok = await Sync.deleteFiles(lote.map(x => x[1]));
+      for (const [p, a] of lote) if (ok.has && ok.has(a.id)){ a.purgado = true; cambios.add(p); } }
+  }
+  for (const p of cambios) await savePatient(p);
+  if (cambios.size && App.view === 'patient') renderPatient();
+}
 async function guardarDocs(p, docs, pf){
   p.adjuntos = p.adjuntos || [];
   for (const d of docs){ const buf = await d.blob.arrayBuffer(); const { k, raw } = await newFileKey(); const chunks = await encFile(buf, k); const id = uid();
@@ -2165,13 +2195,14 @@ function docsCardHTML(p){
   if (!l.length) return '';
   const fila = a => `<li class="docrow"><div class="grow" data-act="doc-open" data-aid="${a.id}" role="button"><div class="name">📄 ${esc(a.desc || a.nombre)}</div><div class="sub">${fmtDT(a.agregado)}${a.autor && a.autor.n ? ' · ' + esc(a.autor.n) : ''}</div></div>
     <button class="btn sm pri" data-act="doc-open" data-aid="${a.id}">Abrir</button><button class="btn sm" data-act="doc-share" data-aid="${a.id}" title="Compartir / imprimir">📤</button><button class="btn sm" data-act="adj-open" data-aid="${a.id}" title="Más opciones">⋯</button></li>`;
-  return `<div class="card"><h2>Documentos emitidos (${l.length})</h2><ul class="list">${l.slice(0, 6).map(fila).join('')}</ul>
+  return `<div class="card"><h2>Documentos emitidos (${l.length})</h2><div class="sub" style="margin:-4px 0 6px">Se borran solos si pasan 3 meses sin abrirlos ni compartirlos.</div><ul class="list">${l.slice(0, 6).map(fila).join('')}</ul>
     ${l.length > 6 ? `<details><summary class="sub" style="cursor:pointer;margin-top:8px">Ver ${l.length - 6} anteriores</summary><ul class="list">${l.slice(6).map(fila).join('')}</ul></details>` : ''}</div>`;
 }
 async function docAbrir(aid, compartir){
   const p = byId(App.current), a = p && (p.adjuntos || []).find(x => x.id === aid); if (!a) return;
   const w = compartir ? null : window.open('', '_blank');   // se abre ya (Safari bloquea ventanas abiertas después de esperar)
   try { const b = await getFileBlob(a);
+    a.usado = Date.now(); savePatient(p).catch(() => {});   // los documentos que no se usan en 3 meses se borran solos
     if (compartir) return await shareFile(b, a);
     const u = URL.createObjectURL(b); if (w) w.location = u; else location.href = u;
   } catch(e){ if (w) w.close(); toast(e.message); }
@@ -2897,7 +2928,8 @@ function mergePatients(a, b){
   const union = k => { const m = new Map(); for (const x of (older[k]||[])) m.set(x.id, x); for (const x of (newer[k]||[])) m.set(x.id, x); return [...m.values()]; };
   out.evoluciones = union('evoluciones').sort((x,y) => x.fecha - y.fecha);
   out.turnos = union('turnos');
-  out.adjuntos = union('adjuntos');
+  out.adjuntos = union('adjuntos').map(x => { const o = (older.adjuntos || []).find(y => y.id === x.id), n = (newer.adjuntos || []).find(y => y.id === x.id); if (!o || !n) return x;
+    const m = { ...x }; for (const k of ['borrado', 'usado']) { const v = Math.max(o[k] || 0, n[k] || 0); if (v) m[k] = v; } if (o.purgado || n.purgado) m.purgado = true; return m; });
   out.cirugias = union('cirugias');
   out.pedidos = union('pedidos').sort((x, y) => (x.creado || 0) - (y.creado || 0));
   out.certificados = union('certificados').sort((x, y) => (x.creado || 0) - (y.creado || 0));
