@@ -88,6 +88,7 @@ textarea.i{resize:vertical;min-height:90px}
 details summary{cursor:pointer;font-weight:600}
 a{color:var(--pri)}
 #print{display:none}
+.docrow{gap:6px}.docrow .name{font-size:14.5px}
 .pdfdoc{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-top:8px}
 .nun-cod{font-family:ui-monospace,monospace;font-weight:700;color:var(--pri)}
 .nun-d{font-size:14px;margin-top:2px}
@@ -996,6 +997,7 @@ function renderPatient(){
     ${evos.length ? evos.map(e => `<div class="evo"><div class="meta"><b>${fmtDT(e.fecha)}</b>${firmaHTML(e.autor)}${e.ediciones && e.ediciones.length ? `<span class="pill warn">editada ${fmtDT(e.editado)}</span>` : ''}<span class="grow"></span>${puedeCorregir(e) ? `<button class="btn sm" data-act="editevo" data-eid="${e.id}">Corregir</button>` : ''}</div><div class="txt">${esc(e.texto)}</div>${practicasHTML(e.practicas)}</div>`).join('') : `<div class="empty"><img src="${LOGOS.isotipoGris}" alt="">Sin evoluciones todavía.</div>`}
   </div>
   ${cirugiasCardHTML(p)}
+  ${docsCardHTML(p)}
   ${adjCardHTML(p)}
   <div class="card"><h2>Turnos</h2>
     ${turnos.length ? `<ul class="list">${turnos.map(t => `<li style="cursor:default"><div class="grow"><div class="name">${diaSemana(t.fecha)} ${fmtDate(t.fecha)} ${esc(t.hora||'')}</div><div class="sub">${esc(t.motivo||'')}</div></div>
@@ -1706,7 +1708,7 @@ function nameMatches(p, dn){ const a = norm(dn).split(/\s+/); const ap = norm(p.
 const ADJ_ICON = { pdf: '📄', zip: '🗜️', dicomzip: '🩻', dicom: '🩻', otro: '📎', img: '🖼️' };
 const ADJ_LABEL = { pdf: 'PDF', zip: 'ZIP', dicomzip: 'DICOM', dicom: 'DICOM', otro: 'Archivo', img: 'Imagen' };
 function adjCardHTML(p){
-  const list = (p.adjuntos || []).filter(a => !a.borrado).sort((a, b) => (b.fecha + b.agregado).localeCompare(a.fecha + a.agregado));
+  const list = (p.adjuntos || []).filter(a => !a.borrado && !a.doc).sort((a, b) => (b.fecha + b.agregado).localeCompare(a.fecha + a.agregado));
   return `<div class="card"><h2>Estudios e imágenes (${list.length})</h2>
     <div class="row" style="margin-bottom:10px"><button class="btn sm" data-act="adj-foto">📷 Sacar foto</button><button class="btn sm" data-act="adj-file">📎 Agregar archivos</button>
     <button class="btn sm desk" data-act="adj-dir" title="Elegí la carpeta del CD o pendrive con el estudio">💿 Carpeta / CD DICOM</button><span class="sub" id="adjStatus"></span></div>
@@ -2092,7 +2094,7 @@ const cargarPDFLib = () => Codecs.script('jspdf.umd.min.js', 'jspdf').catch(() =
 async function generarPDF(p, modo, desde, conAnt){
   const { jsPDF } = await cargarPDFLib();
   const dom = domicilioDe(await DB.getMeta('perfil'));
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
   const W = 210, H = 297, M = 18, CW = W - 2 * M; let y = M;
   // la tipografía estándar del PDF admite tildes y ñ; se reemplazan sólo símbolos especiales
   const T = s => String(s ?? '').replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-').replace(/…/g, '...').replace(/\t/g, '    ').replace(/[^\x00-\xff\n]/g, '');
@@ -2150,6 +2152,30 @@ async function generarPDF(p, modo, desde, conAnt){
   return { blob: doc.output('blob'), paginas: n, evoluciones: evs.length };
 }
 const pdfName = (pre, p) => (pre + '_' + p.apellido + '_' + p.nombre + '_' + isoDate(new Date())).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\w-]+/g, '_') + '.pdf';
+async function guardarDocs(p, docs, pf){
+  p.adjuntos = p.adjuntos || [];
+  for (const d of docs){ const buf = await d.blob.arrayBuffer(); const { k, raw } = await newFileKey(); const chunks = await encFile(buf, k); const id = uid();
+    await DB.putFile({ id, chunks, pend: 1 });
+    p.adjuntos.push({ id, dir: (Sync.sess && Sync.sess.user_id) || null, nombre: d.name, desc: d.label, tipo: 'pdf', mime: 'application/pdf', size: buf.byteLength, nchunks: chunks.length, k: raw,
+      fecha: isoDate(new Date()), agregado: Date.now(), thumb: '', dicom: null, doc: true, autor: firmaActual(pf) }); }
+  await savePatient(p);  if (App.view === 'patient' && App.current === p.id) renderPatient();   // aparece en la ficha, debajo del formulario abierto
+}
+function docsCardHTML(p){
+  const l = (p.adjuntos || []).filter(a => a.doc && !a.borrado).sort((a, b) => b.agregado - a.agregado);
+  if (!l.length) return '';
+  const fila = a => `<li class="docrow"><div class="grow" data-act="doc-open" data-aid="${a.id}" role="button"><div class="name">📄 ${esc(a.desc || a.nombre)}</div><div class="sub">${fmtDT(a.agregado)}${a.autor && a.autor.n ? ' · ' + esc(a.autor.n) : ''}</div></div>
+    <button class="btn sm pri" data-act="doc-open" data-aid="${a.id}">Abrir</button><button class="btn sm" data-act="doc-share" data-aid="${a.id}" title="Compartir / imprimir">📤</button><button class="btn sm" data-act="adj-open" data-aid="${a.id}" title="Más opciones">⋯</button></li>`;
+  return `<div class="card"><h2>Documentos emitidos (${l.length})</h2><ul class="list">${l.slice(0, 6).map(fila).join('')}</ul>
+    ${l.length > 6 ? `<details><summary class="sub" style="cursor:pointer;margin-top:8px">Ver ${l.length - 6} anteriores</summary><ul class="list">${l.slice(6).map(fila).join('')}</ul></details>` : ''}</div>`;
+}
+async function docAbrir(aid, compartir){
+  const p = byId(App.current), a = p && (p.adjuntos || []).find(x => x.id === aid); if (!a) return;
+  const w = compartir ? null : window.open('', '_blank');   // se abre ya (Safari bloquea ventanas abiertas después de esperar)
+  try { const b = await getFileBlob(a);
+    if (compartir) return await shareFile(b, a);
+    const u = URL.createObjectURL(b); if (w) w.location = u; else location.href = u;
+  } catch(e){ if (w) w.close(); toast(e.message); }
+}
 function mostrarPDFs(docs){
   const files = docs.map(d => new File([d.blob], d.name, { type: 'application/pdf' }));
   const canShare = f => !!(navigator.canShare && navigator.canShare({ files: f }));
@@ -2163,8 +2189,9 @@ function mostrarPDFs(docs){
   document.querySelectorAll('#pdfRes [data-op]').forEach(b => b.onclick = () => { const u = URL.createObjectURL(docs[+b.dataset.op].blob); const w = window.open(u, '_blank'); if (!w) location.href = u; });
   document.querySelectorAll('#pdfRes [data-dl]').forEach(b => b.onclick = () => downloadBlob(docs[+b.dataset.dl].blob, docs[+b.dataset.dl].name));
   if ($('#pdfShareAll')) $('#pdfShareAll').onclick = () => share(files);
+  $('#pdfRes').insertAdjacentHTML('beforeend', '<div class="sub" style="margin-top:8px">💾 Quedó guardado en la ficha, en <b>Documentos emitidos</b>: lo abrís desde ahí sin generarlo de nuevo.</div>');
 }
-function mostrarPDF(blob, name, detalle){
+function mostrarPDF(blob, name, detalle, guardado){
   const file = new File([blob], name, { type: 'application/pdf' });
   const canShare = !!(navigator.canShare && navigator.canShare({ files: [file] }));
   $('#pdfRes').innerHTML = `<div class="alert info">✅ PDF listo${detalle ? ': ' + detalle : ''}.
@@ -2173,6 +2200,7 @@ function mostrarPDF(blob, name, detalle){
   if ($('#pdfShare')) $('#pdfShare').onclick = async () => { try { await navigator.share({ files: [file], title: name }); } catch(e){ if (e.name !== 'AbortError') toast('No se pudo compartir: probá con Descargar'); } };
   $('#pdfOpen').onclick = () => { const u = URL.createObjectURL(blob); const w = window.open(u, '_blank'); if (!w) location.href = u; };
   $('#pdfDown').onclick = () => downloadBlob(blob, name);
+  if (guardado) $('#pdfRes').insertAdjacentHTML('beforeend', '<div class="sub" style="margin-top:8px">💾 Quedó guardado en la ficha, en <b>Documentos emitidos</b>: lo abrís desde ahí sin generarlo de nuevo.</div>');
 }
 
 /* ---------- Certificado médico ---------- */
@@ -2258,7 +2286,8 @@ async function certificadoModal(prev){
       const resumen = c.ind === 'reposo' ? `Reposo ${c.dias} días desde ${fmtDate(c.desde)}` : c.ind === 'continuar' ? 'Continúa tareas habituales' : c.ind === 'alta' ? `Alta laboral desde ${fmtDate(c.alta)}` : 'Sin indicación laboral';
       p.certificados = p.certificados || []; p.certificados.push({ id: uid(), ...c, resumen, autor: firmaActual(pf), creado: Date.now() });
       await savePatient(p);
-      mostrarPDF(blob, pdfName('Certificado', p), resumen);
+      await guardarDocs(p, [{ blob, name: pdfName('Certificado', p), label: 'Certificado médico · ' + resumen }], pf);
+      mostrarPDF(blob, pdfName('Certificado', p), resumen, true);
       b.disabled = false; b.textContent = '📝 Generar de nuevo';
     } catch(err){ $('#pdfRes').innerHTML = `<div class="alert danger">${esc(err.message)}</div>`; b.disabled = false; b.textContent = '📝 Generar certificado'; }
   };
@@ -2301,7 +2330,7 @@ function membrete(doc, pf){
 }
 async function docA5(pf0, titulo, lugarFecha){
   const { jsPDF } = await cargarPDFLib();
-  const doc = new jsPDF({ unit: 'mm', format: 'a5' });
+  const doc = new jsPDF({ unit: 'mm', format: 'a5', compress: true });
   const pf = perfilDoc(pf0), W = 148, H = 210, M = 14, CW = W - 2 * M, TOP = 40, BOT = H - 31, T = pdfT;
   const d = { doc, pf, W, H, M, CW, T, TOP, BOT, y: TOP };
   membrete(doc, pf);
@@ -2402,7 +2431,8 @@ async function kineModal(prev){
       const blob = await generarPedidoKine(p, k, pf);
       p.pedidos = p.pedidos || []; p.pedidos.push({ id: uid(), tipoDoc: 'kine', ...k, autor: firmaActual(pf), creado: Date.now() });
       await savePatient(p);
-      mostrarPDF(blob, pdfName('Pedido_kinesio', p), `${+k.sesiones} sesiones de ${k.sector}`);
+      await guardarDocs(p, [{ blob, name: pdfName('Pedido_kinesio', p), label: `Pedido de ${k.tipo} · ${+k.sesiones} sesiones de ${k.sector}` }], pf);
+      mostrarPDF(blob, pdfName('Pedido_kinesio', p), `${+k.sesiones} sesiones de ${k.sector}`, true);
       b.disabled = false; b.textContent = '🏃 Generar de nuevo';
     } catch(err){ $('#pdfRes').innerHTML = `<div class="alert danger">${esc(err.message)}</div>`; b.disabled = false; b.textContent = '🏃 Generar pedido'; }
   };
@@ -2637,7 +2667,7 @@ const esIPS = cob => /\bI\.?P\.?S\b|instituto provincial de salud/i.test(cob || 
 const IPS_MOTIVOS = [['enfermedad', 'Enfermedad'], ['escolar', 'Accidente escolar'], ['laboral', 'Accidente laboral'], ['transito', 'Accidente de tránsito']];
 async function generarFormIPS(p, k, pf0){
   const { jsPDF } = await cargarPDFLib();
-  const doc = new jsPDF({ unit: 'mm', format: 'a4' }), T = pdfT, pf = perfilDoc(pf0);
+  const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true }), T = pdfT, pf = perfilDoc(pf0);
   doc.addImage(FORM_IPS, 'PNG', 0, 0, 210, 297.04);
   const tinta = () => { doc.setTextColor(20, 40, 120); doc.setFont('helvetica', 'normal'); };
   const put = (t, x, y, sz = 9.5, o = {}) => { if (!t) return; tinta(); doc.setFontSize(sz); if (o.bold) doc.setFont('helvetica', 'bold'); doc.text(T(t), x, y, { baseline: 'alphabetic', ...o }); };
@@ -2755,6 +2785,7 @@ async function cirPedidoModal(prev){
       for (const [on, tipo] of [[k.preEcg, 'ecg'], [k.preLab, 'lab']]) if (on) docs.push({ blob: await generarPedidoPrequirurgico(p, k, pf, tipo), name: pdfName(PREQX[tipo].archivo, p), label: PREQX[tipo].label });
       p.pedidos = p.pedidos || []; p.pedidos.push({ id: uid(), tipoDoc: 'cirugia', ...JSON.parse(JSON.stringify(k)), autor: firmaActual(pf), creado: Date.now() });
       await savePatient(p);
+      await guardarDocs(p, docs, pf);
       mostrarPDFs(docs);
       b.disabled = false; b.textContent = '🏥 Generar de nuevo';
     } catch(err){ $('#pdfRes').innerHTML = `<div class="alert danger">${esc(err.message)}</div>`; b.disabled = false; b.textContent = '🏥 Generar pedido'; }
@@ -2967,6 +2998,8 @@ document.addEventListener('click', async e => {
     case 'adj-file': pickFiles('file'); break;
     case 'adj-dir': pickFiles('dir'); break;
     case 'adj-open': openAdj(el.dataset.aid); break;
+    case 'doc-open': docAbrir(el.dataset.aid); break;
+    case 'doc-share': docAbrir(el.dataset.aid, true); break;
   }
 });
 document.addEventListener('click', e => { const li = e.target.closest('li[data-pid]'); if (li && !e.target.closest('[data-act]')) go('patient', li.dataset.pid); });
